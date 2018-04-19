@@ -36,15 +36,14 @@ defmodule Serv do
       {:error, closed} -> {:error, closed}
     end
   end
-"""
+  """
   defp mess_handler(mess, [], socket, print_pid) do
     send(print_pid, {:msg, inspect(mess, limit: :infinity)})
     serve(socket, mess, print_pid)
   end
-  """
+"""
   defp mess_handler(mess, mem, socket, print_pid) do
     """
-    [h|_] = mem
     cond do
       h <> mess == "\r\n" ->
         send(print_pid, {:msg, inspect(mess, limit: :infinity)})
@@ -55,7 +54,7 @@ defmodule Serv do
         send(print_pid, {:msg, inspect(mess, limit: :infinity)})
         serve(socket, [mess | mem], print_pid)
     end
-  """
+    """
     if mess == "\r\n" do
       send(print_pid, {:msg, inspect(mess, limit: :infinity)})
       Logger.info("sending")
@@ -64,6 +63,14 @@ defmodule Serv do
     else
       send(print_pid, {:msg, inspect(mess, limit: :infinity)})
       serve(socket, [mess | mem], print_pid)
+    end
+
+  end
+
+  defp cflf_finder([h|t], {a,b}) do
+    case {a,b,h} do
+      {125,13,10} -> {:msg, :end}
+      _ -> cflf_finder(t, {b,h})
     end
   end
 
