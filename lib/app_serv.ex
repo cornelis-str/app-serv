@@ -8,40 +8,62 @@ defmodule Serv do
   def accept(port) do
     # http://erlang.org/doc/man/gen_tcp.html
     {:ok, socket} =
-      :gen_tcp.listen(port, [:binary, packet: 0, active: false, reuseaddr: true])
+      :gen_tcp.listen(port, [:binary, packet: :raw, active: false, reuseaddr: true])
 
+    print_pid = spawn fn -> logPrint() end
     Logger.info("Accepting connections on port #{port}")
-    insPID = Process.spawn(fn ->
-      IO.inspect
-    end)
-    loop_acceptor(socket, insPID)
+    loop_acceptor(socket, print_pid)
   end
 
-  defp loop_acceptor(socket, insPID) do
+  defp loop_acceptor(socket, print_pid) do
     {:ok, client} = :gen_tcp.accept(socket)
-    {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> serve(client, [], insPID) end)
+    {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor,
+                                              fn -> serve(client, [], print_pid) end)
     :ok = :gen_tcp.controlling_process(client, pid)
-    loop_acceptor(socket, insPID)
+    loop_acceptor(socket, print_pid)
   end
 
-  defp serve(socket, mem, insPID) do
+  defp serve(socket, mem, print_pid) do
     case read_line(socket) do
       {:error, error} -> Logger.info("serve: #{error}")
-      mess -> mess_handler(mess, mem, socket, insPID)
+      mess -> mess_handler(mess, mem, socket, print_pid)
     end
   end
 
   defp read_line(socket) do
-    case :gen_tcp.recv(socket, 0, 10000) do
+    case :gen_tcp.recv(socket, 0) do
       {:ok, data} -> data
       {:error, closed} -> {:error, closed}
     end
   end
-
-  defp write_line(line, socket) do
-    case :gen_tcp.send(socket, line) do
-      {:error, error} -> {:error, error}
-      _ -> :ok
+"""
+  defp mess_handler(mess, [], socket, print_pid) do
+    send(print_pid, {:msg, inspect(mess, limit: :infinity)})
+    serve(socket, mess, print_pid)
+  end
+  """
+  defp mess_handler(mess, mem, socket, print_pid) do
+    """
+    [h|_] = mem
+    cond do
+      h <> mess == "\r\n" ->
+        send(print_pid, {:msg, inspect(mess, limit: :infinity)})
+        Logger.info("sending")
+        send_mess(socket, Enum.reverse(mem))
+        Logger.info("Data sent")
+      true ->
+        send(print_pid, {:msg, inspect(mess, limit: :infinity)})
+        serve(socket, [mess | mem], print_pid)
+    end
+  """
+    if mess == "\r\n" do
+      send(print_pid, {:msg, inspect(mess, limit: :infinity)})
+      Logger.info("sending")
+      send_mess(socket, Enum.reverse(mem))
+      Logger.info("Data sent")
+    else
+      send(print_pid, {:msg, inspect(mess, limit: :infinity)})
+      serve(socket, [mess | mem], print_pid)
     end
   end
 
@@ -53,22 +75,17 @@ defmodule Serv do
     end
   end
 
-  defp mess_handler(mess, mem, socket, inspPID) do
-    case mess do
-      "\r\n" ->
-        Logger.info("sending")
-        send_mess(socket, Enum.reverse(mem))
-        Logger.info("Data sent")
-      _ ->
-        #IO.inspect(mess, limit: :infinity)
-        send
-        serve(socket, [mess | mem])
-      end
+  defp write_line(line, socket) do
+    case :gen_tcp.send(socket, line) do
+      {:error, error} -> {:error, error}
+      _ -> :ok
+    end
   end
 
-  defp inspector do
+  def logPrint do
     receive do
-      {:msg, contents} -> IO.inspect(contents, limit: :infinity)
+      {:msg, cont} -> IO.puts cont
+      logPrint()
     end
   end
 end

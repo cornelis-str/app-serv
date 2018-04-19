@@ -1,6 +1,8 @@
 # Serv
+Saker vi kaaaanske kommer använda:
+https://github.com/ninenines/ranch
 https://github.com/michalmuskala/jason
-
+https://github.com/meh/elixir-socket
 
 **TODO: Add description**
 
