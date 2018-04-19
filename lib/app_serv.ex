@@ -23,55 +23,13 @@ defmodule Serv do
     loop_acceptor(socket, print_pid)
   end
 
-  defp serve(socket, mem, print_pid) do
+  defp serve(socket, print_pid) do
     case read_line(socket) do
       {:error, error} -> Logger.info("serve: #{error}")
-      mess -> mess_handler(mess, mem, socket, print_pid)
+      mess ->
+        parse(mess, socket)
+        serve(socket, print_pid)
     end
-  end
-
-  defp read_line(socket) do
-    case :gen_tcp.recv(socket, 0) do
-      {:ok, data} -> data
-      {:error, closed} -> {:error, closed}
-    end
-  end
-
-  defp read_bytes(bytes, socket) do
-    case :gen_tcp.recv(socket, bytes) do
-      {:ok, data} -> data
-      {:error, closed} -> {:error, closed}
-    end
-  end
-  """
-  defp mess_handler(mess, [], socket, print_pid) do
-    send(print_pid, {:msg, inspect(mess, limit: :infinity)})
-    serve(socket, mess, print_pid)
-  end
-"""
-  defp mess_handler(mess, mem, socket, print_pid) do
-    """
-    cond do
-      h <> mess == "\r\n" ->
-        send(print_pid, {:msg, inspect(mess, limit: :infinity)})
-        Logger.info("sending")
-        send_mess(socket, Enum.reverse(mem))
-        Logger.info("Data sent")
-      true ->
-        send(print_pid, {:msg, inspect(mess, limit: :infinity)})
-        serve(socket, [mess | mem], print_pid)
-    end
-    """
-    if mess == nil do
-      send(print_pid, {:msg, inspect(mess, limit: :infinity)})
-      Logger.info("sending")
-      send_mess(socket, Enum.reverse(mem))
-      Logger.info("Data sent")
-    else
-      #send(print_pid, {:msg, inspect(mess, limit: :infinity)})
-      serve(socket, [mess | mem], print_pid)
-    end
-
   end
 
   defp parse(<<method::size(24), tail::binary>>, socket) do
@@ -80,11 +38,11 @@ defmodule Serv do
         <<imethod::size(24), tailier::binary>> = tail
         case imethod do
           "PIC" -> pic_req([], tailier, socket)
-          _ -> pos_req(tail)
+          _ -> spawn fn -> pos_req(tail) end
         end
-      "PUT" -> put_req(tail)
-      "DEL" -> del_req(tail)
-      "GET" -> get_req(tail)
+      "PUT" -> spawn fn -> put_req(tail) end
+      "DEL" -> spawn fn -> del_req(tail) end
+      "GET" -> spawn fn -> get_req(tail) end
     end
   end
 
@@ -99,6 +57,19 @@ defmodule Serv do
         |> pic_req(0, socket)
     end
   end
+
+  defp read_bytes(bytes, socket) do
+    case :gen_tcp.recv(socket, bytes) do
+      {:ok, data} -> data
+      {:error, closed} -> {:error, closed}
+    end
+  end
+
+  defp read_line(socket) do
+    case :gen_tcp.recv(socket, 0) do
+      {:ok, data} -> data
+      {:error, closed} -> {:error, closed}
+    end
 
   defp send_mess(socket, []), do: write_line("\r\n", socket)
   defp send_mess(socket, [h|t]) do
@@ -121,4 +92,5 @@ defmodule Serv do
       logPrint()
     end
   end
+end
 end
