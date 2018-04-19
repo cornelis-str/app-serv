@@ -41,12 +41,21 @@ defmodule Serv do
           ["PIC"|t] ->
             IO.inspect t, limit: :infinity
 
+            # send ok
             write_line("ok\r\n", socket)
             Logger.info("ok sent")
 
+            # Get pic
             pic_mess = pic_req([], List.first(t) |> String.to_integer(), socket)
-            Logger.info("got pic") 
+            Logger.info("got pic")
+            Logger.info("#{Enum.count(pic_mess)} #{List.first(pic_mess) |> Enum.count()} #{List.last(pic_mess) |> Enum.count()}")
 
+
+            # send ok
+            write_line("ok\r\n", socket)
+            Logger.info("ok2 sent")
+
+            # send pic
             pic_mess |> Enum.reverse() |> send_mess(socket)
             Logger.info("pic sent")
           _ -> spawn fn -> put_req(tail) end
@@ -87,7 +96,7 @@ defmodule Serv do
     end
   end
 
-  defp send_mess([], socket), do: write_line("\r\n", socket)
+  defp send_mess([], _), do: :ok #write_line("\r\n", socket)
   defp send_mess([h|t], socket) do
     case write_line(h, socket) do
       :ok ->  send_mess(t, socket)
