@@ -18,7 +18,7 @@ defmodule Serv do
   defp loop_acceptor(socket, print_pid) do
     {:ok, client} = :gen_tcp.accept(socket)
     {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor,
-                                              fn -> serve(client, [], print_pid) end)
+                                              fn -> serve(client, print_pid) end)
     :ok = :gen_tcp.controlling_process(client, pid)
     loop_acceptor(socket, print_pid)
   end
@@ -32,15 +32,25 @@ defmodule Serv do
     end
   end
 
-  defp parse(<<method::size(24), tail::binary>>, socket) do
-    case method do
-      "POS" ->
-        <<imethod::size(24), tailier::binary>> = tail
-        case imethod do
-          "PIC" -> pic_req([], tailier, socket)
-          _ -> spawn fn -> pos_req(tail) end
+  def parse(mess, socket) do
+    [h | tail] = String.split(mess, " ")
+    case h do
+      "POS" -> spawn fn -> pos_req(tail) end
+      "PUT" ->
+        case tail do
+          ["PIC"|t] ->
+            IO.inspect t, limit: :infinity
+
+            write_line("ok\r\n", socket)
+            Logger.info("ok sent")
+
+            pic_mess = pic_req([], List.first(t) |> String.to_integer(), socket)
+            Logger.info("got pic") 
+
+            pic_mess |> Enum.reverse() |> send_mess(socket)
+            Logger.info("pic sent")
+          _ -> spawn fn -> put_req(tail) end
         end
-      "PUT" -> spawn fn -> put_req(tail) end
       "DEL" -> spawn fn -> del_req(tail) end
       "GET" -> spawn fn -> get_req(tail) end
     end
@@ -50,15 +60,20 @@ defmodule Serv do
   defp pic_req(mem, len, socket) do
     cond do
       len > 1024 ->
-        [read_bytes(1024, socket) | mem]
+        [read_bytes(socket, 1024) | mem]
         |> pic_req(len - 1024, socket)
       true ->
-        [read_bytes(len, socket) | mem]
+        [read_bytes(socket, len) | mem]
         |> pic_req(0, socket)
     end
   end
 
-  defp read_bytes(bytes, socket) do
+  defp pos_req(json) do end
+  defp put_req(json) do end
+  defp del_req(json) do end
+  defp get_req(json) do end
+
+  defp read_bytes(socket, bytes) do
     case :gen_tcp.recv(socket, bytes) do
       {:ok, data} -> data
       {:error, closed} -> {:error, closed}
@@ -70,11 +85,12 @@ defmodule Serv do
       {:ok, data} -> data
       {:error, closed} -> {:error, closed}
     end
+  end
 
-  defp send_mess(socket, []), do: write_line("\r\n", socket)
-  defp send_mess(socket, [h|t]) do
+  defp send_mess([], socket), do: write_line("\r\n", socket)
+  defp send_mess([h|t], socket) do
     case write_line(h, socket) do
-      :ok ->  send_mess(socket, t)
+      :ok ->  send_mess(t, socket)
       {:error, error} -> Logger.info("send_mess: #{error}")
     end
   end
@@ -92,5 +108,4 @@ defmodule Serv do
       logPrint()
     end
   end
-end
 end
