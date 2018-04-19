@@ -48,8 +48,7 @@ defmodule Serv do
             # Get pic
             pic_mess = pic_req([], List.first(t) |> String.to_integer(), socket)
             Logger.info("got pic")
-            Logger.info("#{Enum.count(pic_mess)} #{List.first(pic_mess) |> Enum.count()} #{List.last(pic_mess) |> Enum.count()}")
-
+            Logger.info(Enum.count(pic_mess))
 
             # send ok
             write_line("ok\r\n", socket)
@@ -72,6 +71,7 @@ defmodule Serv do
         [read_bytes(socket, 1024) | mem]
         |> pic_req(len - 1024, socket)
       true ->
+        Logger.info(len) 
         [read_bytes(socket, len) | mem]
         |> pic_req(0, socket)
     end
