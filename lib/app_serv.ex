@@ -36,6 +36,13 @@ defmodule Serv do
       {:error, closed} -> {:error, closed}
     end
   end
+
+  defp read_bytes(bytes, socket) do
+    case :gen_tcp.recv(socket, bytes) do
+      {:ok, data} -> data
+      {:error, closed} -> {:error, closed}
+    end
+  end
   """
   defp mess_handler(mess, [], socket, print_pid) do
     send(print_pid, {:msg, inspect(mess, limit: :infinity)})
@@ -55,22 +62,41 @@ defmodule Serv do
         serve(socket, [mess | mem], print_pid)
     end
     """
-    if mess == "\r\n" do
+    if mess == nil do
       send(print_pid, {:msg, inspect(mess, limit: :infinity)})
       Logger.info("sending")
       send_mess(socket, Enum.reverse(mem))
       Logger.info("Data sent")
     else
-      send(print_pid, {:msg, inspect(mess, limit: :infinity)})
+      #send(print_pid, {:msg, inspect(mess, limit: :infinity)})
       serve(socket, [mess | mem], print_pid)
     end
 
   end
 
-  defp cflf_finder([h|t], {a,b}) do
-    case {a,b,h} do
-      {125,13,10} -> {:msg, :end}
-      _ -> cflf_finder(t, {b,h})
+  defp parse(<<method::size(24), tail::binary>>, socket) do
+    case method do
+      "POS" ->
+        <<imethod::size(24), tailier::binary>> = tail
+        case imethod do
+          "PIC" -> pic_req([], tailier, socket)
+          _ -> pos_req(tail)
+        end
+      "PUT" -> put_req(tail)
+      "DEL" -> del_req(tail)
+      "GET" -> get_req(tail)
+    end
+  end
+
+  defp pic_req(mem, 0, _), do: mem
+  defp pic_req(mem, len, socket) do
+    cond do
+      len > 1024 ->
+        [read_bytes(1024, socket) | mem]
+        |> pic_req(len - 1024, socket)
+      true ->
+        [read_bytes(len, socket) | mem]
+        |> pic_req(0, socket)
     end
   end
 
