@@ -57,12 +57,16 @@ defmodule Serv do
             # send pic
             pic_mess |> Enum.reverse() |> send_mess(socket)
             Logger.info("pic sent")
-          _ -> spawn fn -> put_req(tail) end
+          _ ->
+            IO.inspect tail, limit: :infinity
+            spawn fn -> put_req(tail, socket) end
         end
       "DEL" -> spawn fn -> del_req(tail) end
       "GET" -> spawn fn -> get_req(tail) end
     end
   end
+
+  defp pos_req(json) do end
 
   defp pic_req(mem, 0, _), do: mem
   defp pic_req(mem, len, socket) do
@@ -71,14 +75,18 @@ defmodule Serv do
         [read_bytes(socket, 1024) | mem]
         |> pic_req(len - 1024, socket)
       true ->
-        Logger.info(len) 
+        Logger.info(len)
         [read_bytes(socket, len) | mem]
         |> pic_req(0, socket)
     end
   end
 
-  defp pos_req(json) do end
-  defp put_req(json) do end
+  defp put_req(json, socket) do
+    IO.inspect json
+    write_line("#{Enum.join(json, " ")}\r\n\r\n", socket)
+    Logger.info("Sent mess")
+  end
+
   defp del_req(json) do end
   defp get_req(json) do end
 
