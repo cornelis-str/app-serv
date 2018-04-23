@@ -14,7 +14,7 @@ defmodule Serv do
     loop_acceptor(socket)
   end
 
-# Lyssnar efter anrop till port och startar process för behandling av input
+  # Lyssnar efter anrop till port och startar process för behandling av input
   defp loop_acceptor(socket) do
     # Vänntar på anslutning
     {:ok, client} = :gen_tcp.accept(socket)
@@ -27,7 +27,7 @@ defmodule Serv do
     loop_acceptor(socket)
   end
 
-# läser från klient och skickar till parse eller fel till log
+  # läser från klient och skickar till parse eller fel till log
   defp serve(socket) do
     case read_line(socket) do
       {:error, error} -> Logger.info("serve: #{error}")
@@ -37,7 +37,7 @@ defmodule Serv do
     end
   end
 
-# Tar in förfrågan och skickarvidare info baserad på denna
+  # Tar in förfrågan och skickarvidare info baserad på denna
   def parse(mess, socket) do
     # Gör lista av sträng
     [h | tail] = String.split(mess, " ")
