@@ -27,17 +27,24 @@ defmodule Serv do
     loop_acceptor(socket)
   end
 
-  # läser från klient och skickar till parse eller fel till log
+  """
+  läser från klient och skickar till parse eller fel till log
+  """
   defp serve(socket) do
     case read_line(socket) do
       {:error, error} -> Logger.info("serve: #{error}")
       mess ->
-        parse(mess, socket)
+        #parse(mess, socket)
+        write_line(mess, socket)
+        write_line("\r\n", socket)
+        "echoed" |> Logger.info()
         serve(socket)
     end
   end
 
-  # Tar in förfrågan och skickarvidare info baserad på denna
+  @doc """
+  Tar in förfrågan och skickarvidare info baserad på denna
+  """
   def parse(mess, socket) do
     # Gör lista av sträng
     [h | tail] = String.split(mess, " ")
@@ -84,7 +91,8 @@ defmodule Serv do
 
   # TODO
   # Ta hand om POS requests
-  defp pos_req(json) do end
+  defp pos_req(_) do end
+
 
   # Läser in len stor bild i 1024 bytes bitar
   defp pic_req(mem, 0, _), do: mem
@@ -104,20 +112,21 @@ defmodule Serv do
   # TODO
   # Ska ta hand om PUT requests som != PIC
   defp put_req(json, socket) do
-    IO.inspect json
+    #IO.inspect json
     write_line("#{json}\r\n\r\n", socket)
     Logger.info("Sent mess")
   end
 
   # TODO
   # Ska ta hand om DEL requests
-  defp del_req(json) do end
+  defp del_req(_) do end
 
   # TODO
   # Ska ta hand om GET requests
-  defp get_req(json) do end
+  defp get_req(_) do end
 
-  # Läser bytes antal bytes från socket
+
+  # Läser bytes antal bytes från socker
   defp read_bytes(socket, bytes) do
     case :gen_tcp.recv(socket, bytes) do
       {:ok, data} -> data
@@ -135,7 +144,7 @@ defmodule Serv do
 
   # TODO InProgress
   # Skickar data från lista till socket
-  defp send_mess([], _), do: :ok #write_line("\r\n", socket)
+  defp send_mess([], socket), do: write_line("\r\n", socket)
   defp send_mess([h|t], socket) do
     case write_line(h, socket) do
       :ok ->  send_mess(t, socket)
