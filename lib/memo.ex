@@ -80,7 +80,17 @@ defmodule Memo do
     end
   end
 
-  def get_notif do end
+  #Why would we need to replace friendrequests/roominvites??!? /A & C alldeles för sent på eftermiddagen
+  def get_notif(data, req, val, pid)　do
+    case val do
+      0 -> List.delete(data.notifs, req)
+      {_, tail} -> 
+        index = Enum.find(data, fn(x) -> x == tail end)      #highly doubtful. too tired
+        send pid, {:ok}
+        List.replace_at(data, index, tail)        
+    end
+  end
+
   def get_friend do end
   def get_room do end
   def get_quest do end
