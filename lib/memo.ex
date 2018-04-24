@@ -74,7 +74,6 @@ defmodule Memo do
             user_data_handler(user_data)
         end
         
-
         send pid, {:memo, :ok}
       {:save, id} -> send :fmux, {:save, {id, user_data}}
       {:quit} -> :ok
