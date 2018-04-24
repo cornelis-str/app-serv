@@ -68,12 +68,13 @@ defmodule Memo do
             set_friend user_data, userID, value, pid
             |> user_data_handler
           {:rooms, roomID} ->
-            set_room user_data, userID, value, pid
+            set_room user_data, roomID, value, pid
           {:has_new} ->
-            user_data.has_new = value
-            user_data_handler(user_data)
+            user_data
+            |> Map.replace!(:has_new, value)
+            |> user_data_handler()
         end
-        
+
         send pid, {:memo, :ok}
       {:save, id} -> send :fmux, {:save, {id, user_data}}
       {:quit} -> :ok
@@ -81,13 +82,19 @@ defmodule Memo do
   end
 
   #Why would we need to replace friendrequests/roominvites??!? /A & C alldeles för sent på eftermiddagen
-  def get_notif(data, req, val, pid)　do
+  # Fixed /A
+  def get_notif(data, req, val, pid) do
     case val do
       0 -> List.delete(data.notifs, req)
-      {_, tail} -> 
-        index = Enum.find(data, fn(x) -> x == tail end)      #highly doubtful. too tired
-        send pid, {:ok}
-        List.replace_at(data, index, tail)        
+      _ ->
+        Enum.member?(data.notifs, val)
+        |> case do
+          true -> send pid, {:memo, :ok}
+          false ->
+            data
+            |> Map.replace!(:notifs, [val | data.notifs])
+            send pid, {:memo, :ok}
+          end
     end
   end
 
@@ -95,10 +102,10 @@ defmodule Memo do
   def get_room do end
   def get_quest do end
 
-  def set_notif do end
-  def set_friend do end
-  def set_room do end
-  def set_quest do end
+  def set_notif(map, req, val, pid) do end
+  def set_friend(map, req, val, pid) do end
+  def set_room(map, req, val, pid) do end
+  def set_quest(map, req, val, pid) do end
 
   # Sparar till och laddar från fil
   def file_mux(file_path) do
