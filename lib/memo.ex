@@ -9,9 +9,9 @@ defmodule Memo do
   # :hasNew => false | true
   # }
   # room = %{
-  # :owner => "Amandaaaaaa"
+  # :owner => "Kor-Nelzizandaaaaaa"
   # :name => "Super Duper Room",
-  # :topic => "",
+  # :topic => "Underground Bayblade Cabal",
   # :icon => <<ByteArray>>
   # :users => [{:user, userID}, etc...]
   # :quests => [%{:questID => questID, :quest => <JsonString>}]
@@ -140,12 +140,7 @@ defmodule Memo do
     end
   end
 
-  # :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
   def set_friend(map, method, userID, friend, pid) do
-    # hitta friend i listan
-    # tabort friend
-    # lägg till friend
-    # annars endast lägg till friends
     map.friends
     |> Enum.find_index(friend)
     |> case do
@@ -159,26 +154,12 @@ defmodule Memo do
             |> Map.replace!(:friends, [map.friends])
           :del ->
             map
-            |> Map.replace!(:friends, [friend | map.friends |> List.delete_at(index)]) 
+            |> Map.replace!(:friends, [friend | map.friends |> List.delete_at(index)])
         end
     end
   end
 
-  # :rooms => [%{:roomId => roomID, :room => room}, etc...]
-  # room = {
-  # :owner => "Kor-Nelzizs",
-  # :name => "Super Duper Room",
-  # :topic => "Underground Brony Cabal",
-  # :icon => <<ByteArray>>
-  # :users => [{:user, userID}, etc...]
-  # :quests => [%{:questID => questID, :quest => <JsonString>}]
-  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
-  # }
   def set_room(map, method, roomID, roomPart, part, pid) do
-    # get room
-    # find part
-    # replace part
-    # replace old room in room list
     map.rooms
     |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == roomID end)
     |> case do
@@ -241,6 +222,7 @@ defmodule Memo do
         |> case do
           nil->
             "error handling"
+
           index ->
             upd_quests = room.quests |> List.delete_at(index)
             upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
