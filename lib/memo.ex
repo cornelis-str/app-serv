@@ -214,15 +214,14 @@ defmodule Memo do
 
 
   def set_quest(map, action, questID, quest, pid) do
-    [username, roomname, questname] = String.split(resID, "@")
+    [username, roomname, questname] = String.split(questID, "@")
     room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
         room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
         |> case do
           nil->
-            "error handling"
-
+            send pid, {:memo, "Cannot remove files that do not exist"}
           index ->
             upd_quests = room.quests |> List.delete_at(index)
             upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
@@ -248,15 +247,15 @@ defmodule Memo do
     end
   end
 
-  def set_quest_pics(map, what req, val, pid) do
-    [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
+  def set_quest_pics(map, action, quest_picID, pic, pid) do
+    [username, roomname, questname, missionPart, thingName] = String.split(quest_picID, "@")
     room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
         room.quest_pics |> Enum.find_index(fn(%{:quest_picID => id, :quest_pic => _}) -> id == quest_picID end)
         |> case do
           nil->
-            "error handling"
+            send pid, {:memo, "Cannot remove files that do not exist"}
           index ->
             upd_quests_pic = room.quest_pics |> List.delete_at(index)
             upd_room = map.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
@@ -268,13 +267,13 @@ defmodule Memo do
         |> case do
           nil ->
             #Lägg till
-            upd_quests_pic = [quest | room.quest_pics]
+            upd_quests_pic = [pic | room.quest_pics]
             upd_room = map.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
             upd_rooms = map.rooms |> Map.replace!(:quest_pic, upd_room)
             upd_map = map |> Map.replace!(:rooms, upd_rooms)
           index ->
             #Ersätt
-            upd_quests_pic = [quest | room.quest_pics |> List.delete_at(index)]
+            upd_quests_pic = [pic | room.quest_pics |> List.delete_at(index)]
             upd_room = map.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
             upd_rooms = map.rooms |> Map.replace!(:quest_pic, upd_room)
             upd_map = map |> Map.replace!(:rooms, upd_rooms)
