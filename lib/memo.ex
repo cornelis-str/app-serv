@@ -234,8 +234,8 @@ defmodule Memo do
         room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
         |> case do
           nil->
-            #error handling
-          x ->
+            "error handling"
+          index ->
             upd_quests = room.quests |> List.delete_at(index)
             upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
             upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
@@ -250,7 +250,7 @@ defmodule Memo do
             upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
             upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
             upd_map = map |> Map.replace!(:rooms, upd_rooms)
-          x ->
+          index ->
             #Ersätt
             upd_quests = [quest | room.quests |> List.delete_at(index)]
             upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
