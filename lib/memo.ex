@@ -118,11 +118,11 @@ defmodule Memo do
     send pid, quest
   end
 
-  def get_quest_pics(map, resID, pid) do
+ def get_quest_pics(map, resID, pid) do
     [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    quest_pic = (room.quest_pics |> Enum.find(fn({:quest_pic, {:resID, resID2, _, _}}) -> resID2 == resID end))
-    send pid, quest_pic
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    quest_pic = (room.quest_pics |> Enum.find(fn(%{:quest_picID => x, :pic => _}) -> x == resID end))
+    send pid, quest_picID
   end
 
   def set_notif(map, notif, method, pid) do
@@ -148,8 +148,14 @@ defmodule Memo do
         map
         |> Map.replace!(:friends, [friend | map.friends])
       index ->
-        map
-        |> Map.replace!(:friends, [friend | map.friends |> List.delete_at(index)])
+        case method do
+          :add ->
+            map
+            |> Map.replace!(:friends, [map.friends])
+          :del ->
+            map
+            |> Map.replace!(:friends, [friend | map.friends |> List.delete_at(index)])
+        end
     end
   end
 
@@ -216,7 +222,8 @@ defmodule Memo do
         |> case do
           nil->
             "error handling"
-          x ->
+
+          index ->
             upd_quests = room.quests |> List.delete_at(index)
             upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
             upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
