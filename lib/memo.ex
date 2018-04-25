@@ -8,11 +8,10 @@ defmodule Memo do
   # :rooms => [%{:roomID => roomID, :room => room}, etc...],
   # :hasNew => false | true
   # }
-
   # room = %{
-  # :owner => "Kor-Nelzizs"
+  # :owner => "Amandaaaaaa"
   # :name => "Super Duper Room",
-  # :topic => "Underground BBBrony Canal",
+  # :topic => "",
   # :icon => <<ByteArray>>
   # :users => [{:user, userID}, etc...]
   # :quests => [%{:questID => questID, :quest => <JsonString>}]
@@ -31,8 +30,6 @@ defmodule Memo do
       {:msg, {id, action}} ->
         case pid_list[id] do
           nil ->
-            # Vad är scopet för pid_list här? Är denna pid_list samma som i
-            # memo_mux pid_list nedan?
             pid_list |> Map.put(id, spawn fn -> create_user(id) |> user_data_handler() end)
             send pid_list[id], action
           pid -> send pid, action
@@ -79,11 +76,9 @@ defmodule Memo do
           {:userID} -> user_data |> Map.put(:userID, value)
           {:notifs, notif, what} ->
             set_notif user_data, what, notif, value, pid
-            |> user_data_handler
 
           {:friends, userID, what} ->
             set_friend user_data, what, userID, value, pid
-            |> user_data_handler
 
           {:rooms, roomID, roomPart, what} ->
             set_room user_data, what, roomID, roomPart, value, pid
@@ -97,37 +92,43 @@ defmodule Memo do
           {:has_new} ->
             user_data
             |> Map.replace!(:has_new, value)
-            |> user_data_handler()
-        end
 
-        send pid, {:memo, :ok}
+        end
+        |> user_data_handler()              # IT WORKS MTFKER!!!
+
       {:save, id} -> send :fmux, {:save, {id, user_data}}
       {:quit} -> :ok
     end
   end
 
   def get_friend(map, userID, pid) do
-    friend = (map.friends |> Enum.find(fn({:friend, %{:userID => x, _}}) -> x == userID end))
+    friend = (map.friends |> Enum.find(fn({:friend, %{:userID => x, :friends => _}}) -> x == userID end))
     send pid, friend
   end
 
   def get_room(map, roomID, pid) do
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == roomID end))
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == roomID end))
     send pid, room
   end
 
   def get_quest(map, resID, pid) do
     [username, roomname, questname] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
-    quest = (room.quests |> Enum.find(fn(%{:questID => x, _}) -> x == resID end))
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+    quest = (room.quests |> Enum.find(fn(%{:questID => x, :quest => _}) -> x == resID end))
     send pid, quest
   end
 
  def get_quest_pics(map, resID, pid) do
     [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
+<<<<<<< HEAD
     room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
     quest_pic = (room.quest_pics |> Enum.find(fn(%{:quest_picID => x, :pic => _}) -> x == resID end))
     send pid, quest_picID
+=======
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+    quest_pic = (room.quest_pics |> Enum.find(fn({:quest_pic, {:resID, resID2, _, _}}) -> resID2 == resID end))
+    send pid, quest_pic
+>>>>>>> fe1f29df55421f5c0672adef6bb70a41e0af008f
   end
 
   def set_notif(map, notif, method, pid) do
@@ -145,6 +146,7 @@ defmodule Memo do
     end
   end
 
+  # :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
   def set_friend(map, method, userID, friend, pid) do
     # hitta friend i listan
     # tabort friend
@@ -184,64 +186,88 @@ defmodule Memo do
     # replace part
     # replace old room in room list
     map.rooms
-    |> Enum.find(fn(%{:roomID => x, _}) -> x == roomID end)
+    |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == roomID end)
     |> case do
       nil -> map |> Map.replace!(:rooms, [part | map.rooms])
-      %{_, :room => room} ->
+      %{:roomID => _, :room => room} ->
         case roomPart do
-          :room ->
+          :room when method == :add ->
+            map |> Map.replace!(:rooms, [part | map.rooms
+            |> Enum.find(fn(%{:roomID => ^roomID, :room => _}) -> true end)
+            |> List.delete()])
+
+          :room when method == :del ->
             map |> Map.replace!(:rooms,
-            [part | map.rooms |> List.delete(%{:roomID => ^roomID,_})]
-            )
-          :owner -> map |> Map.replace!(:owner, part)
-          :name -> map |> Map.replace!(:name, part)
-          :topic -> map |> Map.replace!(:topic, part)
-          :icon -> map |> Map.replace!(:icon, part)
-          :users ->
+            map.rooms
+            |> Enum.find(fn (%{:roomID => ^roomID, :room => _}) -> true end)
+            |> List.delete() )
+
+          :owner ->
+            map |> Map.replace!(:owner, part)
+
+          :name ->
+            map |> Map.replace!(:name, part)
+
+          :topic ->
+            map |> Map.replace!(:topic, part)
+
+          :icon ->
+            map |> Map.replace!(:icon, part)
+
+          :users when method == :add ->
             map.users
-            |> Enum.find(fn(^part) -> true end)
+            |> Enum.find_index(fn(^part) -> true end)
             |> case do
-              nil -> map |> Map.replace!(:users, [part | map.users])
-              _ ->
+              nil ->
+                map |> Map.replace!(:users, [part | map.users])
+              index ->
+                map |> Map.replace!(:users, [part |
+                map.users
+                |> List.delete_at(index)])
             end
-          _ -> send pid, {:memo, "Use correct function"}
+
+          :users when method == :del ->
+            map |> Map.replace!(:users,
+            map.users
+            |> List.delete_at(map.users
+            |> Enum.find_index(fn(^part) -> true end)))
+
+          _ -> send pid, {:memo, "SYNTAX ERROR"}
         end
     end
   end
 
-  # user_data = %{
-  # :userID => lolcat,
-  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
-  # :friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
-  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
-  # :hasNew => false | true
-  # }
 
-  # room = %{
-  # :owner => "Kor-Nelzizs"
-  # :name => "Super Duper Room",
-  # :topic => "Underground BBBrony Canal",
-  # :icon => <<ByteArray>>
-  # :users => [{:user, userID}, etc...]
-  # :quests => [%{:questID => questID, :quest => <JsonString>}]
-  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
-  # }
   def set_quest(map, action, questID, quest, pid) do
     [username, roomname, questname] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
-        updRoom = room.quests |> Map.delete(%{:questID => questID, _})                                        #Amanda-approved
-        updRooms = map.rooms |> Map.replace!(:quest, updRoom)
-        updMap = map |> Map.replace!(:rooms, updRooms)
-        send pid, {:ok}
+        room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
+        |> case do
+          nil->
+            "error handling"
+          index ->
+            upd_quests = room.quests |> List.delete_at(index)
+            upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
+            upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+        end
       :add ->
-        room.quests |> Enum.find(fn(%{:questID => quest, _}) -> )
+        room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
         |> case do
           nil ->
-            #Ersätt
-          _ ->
             #Lägg till
+            upd_quests = [quest | room.quests]
+            upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
+            upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+          index ->
+            #Ersätt
+            upd_quests = [quest | room.quests |> List.delete_at(index)]
+            upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
+            upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
         end
     end
   end
