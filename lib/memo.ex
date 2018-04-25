@@ -1,14 +1,15 @@
 defmodule Memo do
   require Logger
 
-  # user_data = {
+  # user_data = %{
   # :userID => lolcat,
-  # :notifs => [{:friendReq, {:from, lolcat, :to, doggo}}, {:roomInv, {:room, [], :to, lolcat}}, etc...],
-  # :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
-  # :rooms => {:room, {}}, {:room, {}}, etc...},
-  # :hasNew => false,
+  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
+  # :friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
+  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :hasNew => false | true
   # }
-  # room = {
+  # room = %{
+  # :owner => "Amandaaaaaa"
   # :name => "Super Duper Room",
   # :topic => "",
   # :icon => <<ByteArray>>
@@ -56,7 +57,22 @@ defmodule Memo do
 
   def user_data_handler(user_data) do
     receive do
-      {:get, pid, thing} -> send pid, {:memo, user_data[thing]}
+      {:get, pid, thing} ->
+        case thing do
+          {:userID} -> send pid, user_data |> Map.get(:userId)
+          {:notifs} -> send pid, user_data |> Map.get(:notifs)
+          {:friends, userID} ->
+            get_friend user_data, userID, pid
+          {:rooms, roomID} ->
+            get_room user_data, roomID, pid
+          {:quest, questID} ->
+            get_quest user_data, questID, pid
+          {:quest_pic, resID} ->
+            get_quest_pics user_data, resID, pid
+          {:has_new} ->
+            send pid, user_data |> Map.get(:has_new)
+        end
+        user_data_handler(user_data)
       {:set, pid, thing, value} ->
         case thing do
           {:userID} -> user_data |> Map.put(:userID, value)
@@ -66,8 +82,13 @@ defmodule Memo do
           {:friends, userID} ->
             set_friend user_data, userID, value, pid
             |> user_data_handler
+
           {:rooms, roomID, roomPart} ->
             set_room user_data, roomID, roomPart, value, pid
+          {:quest, questID} ->
+            set_quest user_data, questID, value, pid
+          {:quest_pic, resID} ->
+            set_quest_pics user_data, resID, value, pid
           {:has_new} ->
             user_data
             |> Map.replace!(:has_new, value)
@@ -80,14 +101,29 @@ defmodule Memo do
     end
   end
 
-  def get_notif(map, req, val, pid) do
-
+  def get_friend(map, userID, pid) do
+    friend = (map |> Map.get(:friends) |> Enum.find(nil, fn({:friend, %{:userID => x, _}}) -> x == userID end))
+    send pid, friend
   end
 
-  def get_friend(map, req, val, pid) do end
-  def get_room(map, req, val, pid) do end
-  def get_quest(map, req, val, pid) do end
-  def get_quest_pics(map, req, val, pid) do end
+  def get_room(map, roomID, pid) do
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == roomID end))
+    send pid, room
+  end
+
+  def get_quest(map, resID, pid) do
+    [username, roomname, questname] = String.split(resID, "@")
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    quest = (room.quests |> Enum.find(fn({:quest, {:resID, resID2, _, _}}) -> resID2 == resID end))
+    send pid, quest
+  end
+
+  def get_quest_pics(map, resID, pid) do
+    [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    quest_pic = (room.quest_pics |> Enum.find(fn({:quest_pic, {:resID, resID2, _, _}}) -> resID2 == resID end))
+    send pid, quest_pic
+  end
 
   def set_notif(map, notif, method, pid) do
     case method do
@@ -154,8 +190,32 @@ defmodule Memo do
     end
   end
 
-  def set_quest(map, questID, quest, pid) do end
-  def set_quest_pics(map, pic_ID, pic, pid) do end
+  # room = %{
+  # :owner => "Amandaaaaaa"
+  # :name => "Super Duper Room",
+  # :topic => "",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, userID}, etc...]
+  # :quests => [%{:questID => questID, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
+  # }
+  def set_quest(map, questID, quest, val, pid) do
+    case val do
+      :del ->
+        map.quests |> List.delete(quest)
+        send pid, {:ok}
+      :add ->
+        Enum.member?(map.quests, quest)
+        |> case do
+          true ->
+            #Ersätt
+
+          false ->
+            #Lägg till
+        end
+    end
+  end
+  def set_quest_pics(map, req, val, pid) do end
 
   # Sparar till och laddar från fil
   def file_mux(file_path) do
