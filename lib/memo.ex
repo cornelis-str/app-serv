@@ -60,14 +60,14 @@ defmodule Memo do
       {:set, pid, thing, value} ->
         case thing do
           {:userID} -> user_data |> Map.put(:userID, value)
-          {:notifs, request} ->
-            set_notif user_data, request, value, pid
+          {:notifs, notif} ->
+            set_notif user_data, notif, value, pid
             |> user_data_handler
           {:friends, userID} ->
             set_friend user_data, userID, value, pid
             |> user_data_handler
-          {:rooms, roomID} ->
-            set_room user_data, roomID, value, pid
+          {:rooms, roomID, roomPart} ->
+            set_room user_data, roomID, roomPart, value, pid
           {:has_new} ->
             user_data
             |> Map.replace!(:has_new, value)
@@ -80,31 +80,82 @@ defmodule Memo do
     end
   end
 
-  def get_notif(data, req, val, pid) do
-    case val do
-      0 -> List.delete(data.notifs, req)
-      _ ->
-        Enum.member?(data.notifs, val)
+  def get_notif(map, req, val, pid) do
+
+  end
+
+  def get_friend(map, req, val, pid) do end
+  def get_room(map, req, val, pid) do end
+  def get_quest(map, req, val, pid) do end
+  def get_quest_pics(map, req, val, pid) do end
+
+  def set_notif(map, notif, method, pid) do
+    case method do
+      :del -> map.notifs |> List.delete(notif)
+      :add ->
+        map.notifs
+        |> Enum.member?(notif)
         |> case do
           true -> send pid, {:memo, :ok}
           false ->
-            data
-            |> Map.replace!(:notifs, [val | data.notifs])
+            map |> Map.replace!(:notifs, [notif | map.notifs])
             send pid, {:memo, :ok}
           end
     end
   end
-  
-  def get_friend do end
-  def get_room do end
-  def get_quest do end
-  def get_quest_pics do end
 
-  def set_notif(map, req, val, pid) do end
-  def set_friend(map, req, val, pid) do end
-  def set_room(map, req, val, pid) do end
-  def set_quest(map, req, val, pid) do end
-  def set_quest_pics(map, req, val, pid) do end
+# :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
+  def set_friend(map, userID, friend, pid) do
+    # hitta friend i listan
+    # tabort friend
+    # lägg till friend
+    # annars endast lägg till friends
+    map.friends
+    |> Enum.find_index(friend)
+    |> case do
+      nil ->
+        map
+        |> Map.replace!(:friends, [friend | map.friends])
+      index ->
+        map
+        |> Map.replace!(:friends, [friend | map.friends |> List.delete_at(index)])
+    end
+  end
+
+# :rooms => [%{:roomId => roomID, :room => room}, etc...]
+# room = {
+# :owner => "Kor-Nelzizs",
+# :name => "Super Duper Room",
+# :topic => "Underground Brony Cabal",
+# :icon => <<ByteArray>>
+# :users => [{:user, userID}, etc...]
+# :quests => [{:quest, {:resID, resID, :json, <JsonString>}}]
+# :quest_pics => [{:quest_pic, {:resID, resID, :pic, <<ByteArray>>}}]
+# }
+  def set_room(map, roomID, roomPart, part, pid) do
+    # get room
+    # find part
+    # replace part
+    # replace old room in room list
+    map.rooms
+    |> Enum.find(fn(%{:roomID => x, _}) -> x == roomID end)
+    |> case do
+      nil -> map |> Map.replace!(:rooms, [part | map.rooms])
+      %{_, :room => room} ->
+        case roomPart do
+          :room -> map |> Map.replace!(:rooms, [part | map.rooms |> ])
+          :owner ->
+          :name ->
+          :topic ->
+          :icon ->
+          :users ->
+          _ -> send pid, {:memo, "Use correct function"}
+        end
+    end
+  end
+
+  def set_quest(map, questID, quest, pid) do end
+  def set_quest_pics(map, pic_ID, pic, pid) do end
 
   # Sparar till och laddar från fil
   def file_mux(file_path) do
