@@ -265,7 +265,40 @@ defmodule Memo do
         end
     end
   end
-  def set_quest_pics(map, what req, val, pid) do end
+
+  def set_quest_pics(map, what req, val, pid) do
+    [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+    case action do
+      :del ->
+        room.quest_pics |> Enum.find_index(fn(%{:quest_picID => id, :quest_pic => _}) -> id == quest_picID end)
+        |> case do
+          nil->
+            "error handling"
+          index ->
+            upd_quests_pic = room.quest_pics |> List.delete_at(index)
+            upd_room = map.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
+            upd_rooms = map.rooms |> Map.replace!(:quest_pic, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+        end
+      :add ->
+        room.quest_pics |> Enum.find_index(fn(%{:quest_picID => id, :quest_pic => _}) -> id == quest_picID end)
+        |> case do
+          nil ->
+            #Lägg till
+            upd_quests_pic = [quest | room.quest_pics]
+            upd_room = map.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
+            upd_rooms = map.rooms |> Map.replace!(:quest_pic, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+          index ->
+            #Ersätt
+            upd_quests_pic = [quest | room.quest_pics |> List.delete_at(index)]
+            upd_room = map.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
+            upd_rooms = map.rooms |> Map.replace!(:quest_pic, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+        end
+    end
+  end
 
   # Sparar till och laddar från fil
   def file_mux(file_path) do
