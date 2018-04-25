@@ -120,15 +120,9 @@ defmodule Memo do
 
  def get_quest_pics(map, resID, pid) do
     [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
-<<<<<<< HEAD
     room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
     quest_pic = (room.quest_pics |> Enum.find(fn(%{:quest_picID => x, :pic => _}) -> x == resID end))
     send pid, quest_picID
-=======
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    quest_pic = (room.quest_pics |> Enum.find(fn({:quest_pic, {:resID, resID2, _, _}}) -> resID2 == resID end))
-    send pid, quest_pic
->>>>>>> fe1f29df55421f5c0672adef6bb70a41e0af008f
   end
 
   def set_notif(map, notif, method, pid) do
