@@ -74,8 +74,8 @@ defmodule Memo do
       {:set, pid, action, value} ->
         case action do
           {:userID} -> user_data |> Map.put(:userID, value)
-          {:notifs, notif, what} ->
-            set_notif user_data, what, notif, value, pid
+          {:notifs, what} ->
+            set_notif user_data, what, value, pid
 
           {:friends, userID, what} ->
             set_friend user_data, what, userID, value, pid
@@ -112,20 +112,20 @@ defmodule Memo do
   end
 
   def get_quest(map, resID, pid) do
-    [username, roomname, questname] = String.split(resID, "@")
+    [username, roomname, _] = String.split(resID, "@")
     room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     quest = (room.quests |> Enum.find(fn(%{:questID => x, :quest => _}) -> x == resID end))
     send pid, quest
   end
 
- def get_quest_pics(map, resID, pid) do
-    [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+  def get_quest_pics(map, resID, pid) do
+    [username, roomname, _, _, _] = String.split(resID, "@")
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     quest_pic = (room.quest_pics |> Enum.find(fn(%{:quest_picID => x, :pic => _}) -> x == resID end))
-    send pid, quest_picID
+    send pid, quest_pic
   end
 
-  def set_notif(map, notif, method, pid) do
+  def set_notif(map, method, notif, pid) do
     case method do
       :del -> map.notifs |> List.delete(notif)
       :add ->
@@ -142,16 +142,21 @@ defmodule Memo do
 
   def set_friend(map, method, userID, friend, pid) do
     map.friends
-    |> Enum.find_index(friend)
+    |> Enum.find_index(fn {:friend, %{:userID => ^userID, :friends => _}} -> true end)
     |> case do
-      nil ->
+      nil when method == :add ->
         map
         |> Map.replace!(:friends, [friend | map.friends])
+
+      nil when method == :del ->
+        send pid, {:memo, "Can't delete nonexisting"}
+
       index ->
         case method do
           :add ->
             map
-            |> Map.replace!(:friends, [map.friends])
+            |> Map.replace!(:friends, map.friends)
+
           :del ->
             map
             |> Map.replace!(:friends, [friend | map.friends |> List.delete_at(index)])
@@ -161,10 +166,13 @@ defmodule Memo do
 
   def set_room(map, method, roomID, roomPart, part, pid) do
     map.rooms
-    |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == roomID end)
+    |> Enum.find(fn(%{:roomID => ^roomID, :room => _}) -> true end)
     |> case do
-      nil -> map |> Map.replace!(:rooms, [part | map.rooms])
-      %{:roomID => _, :room => room} ->
+      nil when method == :add -> map |> Map.replace!(:rooms, [part | map.rooms])
+
+      nil when method == :del -> send pid, {:memo, "Can't delete nonexisting"}
+
+      %{:roomID => _, :room => _} ->
         case roomPart do
           :room when method == :add ->
             map |> Map.replace!(:rooms, [part | map.rooms
@@ -214,7 +222,7 @@ defmodule Memo do
 
 
   def set_quest(map, action, questID, quest, pid) do
-    [username, roomname, questname] = String.split(questID, "@")
+    [username, roomname, _] = String.split(questID, "@")
     room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
@@ -242,13 +250,13 @@ defmodule Memo do
             upd_quests = [quest | room.quests |> List.delete_at(index)]
             upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
             upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
-            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+            map |> Map.replace!(:rooms, upd_rooms)
         end
     end
   end
 
   def set_quest_pics(map, action, quest_picID, pic, pid) do
-    [username, roomname, questname, missionPart, thingName] = String.split(quest_picID, "@")
+    [username, roomname, _, _, _] = String.split(quest_picID, "@")
     room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
@@ -276,7 +284,7 @@ defmodule Memo do
             upd_quests_pic = [pic | room.quest_pics |> List.delete_at(index)]
             upd_room = map.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
             upd_rooms = map.rooms |> Map.replace!(:quest_pic, upd_room)
-            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+            map |> Map.replace!(:rooms, upd_rooms)
         end
     end
   end
