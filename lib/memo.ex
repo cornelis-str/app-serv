@@ -1,14 +1,15 @@
 defmodule Memo do
   require Logger
 
-  # user_data = {
+  # user_data = %{
   # :userID => lolcat,
-  # :notifs => [{:friendReq, {:from, lolcat, :to, doggo}}, {:roomInv, {:room, [], :to, lolcat}}, etc...],
-  # :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
-  # :rooms => {:room, {}}, {:room, {}}, etc...},
-  # :hasNew => false,
+  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
+  # :friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
+  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :hasNew => false | true
   # }
-  # room = {
+  # room = %{
+  # :roomID => id,
   # :name => "Super Duper Room",
   # :topic => "",
   # :icon => <<ByteArray>>
@@ -56,7 +57,22 @@ defmodule Memo do
 
   def user_data_handler(user_data) do
     receive do
-      {:get, pid, thing} -> send pid, {:memo, user_data[thing]}
+      {:get, pid, thing} -> 
+        case thing do
+          {:userID} -> send pid, user_data |> Map.get(:userId)
+          {:notifs} -> send pid, user_data |> Map.get(:notifs)
+          {:friends, userID} ->
+            get_friend user_data, userID, pid
+          {:rooms, roomID} ->
+            get_room user_data, roomID, pid
+          {:quest, questID} ->
+            get_quest user_data, questID, pid
+          {:quest_pic, resID} ->
+            get_quest_pics user_data, resID, pid
+          {:has_new} -> 
+            send pid, user_data |> Map.get(:has_new)
+        end
+        user_data_handler(user_data)
       {:set, pid, thing, value} ->
         case thing do
           {:userID} -> user_data |> Map.put(:userID, value)
@@ -68,6 +84,10 @@ defmodule Memo do
             |> user_data_handler
           {:rooms, roomID} ->
             set_room user_data, roomID, value, pid
+          {:quest, questID} ->
+            set_quest user_data, questID, value, pid
+          {:quest_pic, resID} ->
+            set_quest_pics user_data, resID, value, pid
           {:has_new} ->
             user_data
             |> Map.replace!(:has_new, value)
@@ -80,7 +100,31 @@ defmodule Memo do
     end
   end
 
-  def get_notif(data, req, val, pid) do
+  def get_friend(map, userID, pid) do
+    friend = (map |> Map.get(:friends) |> Enum.find(nil, fn({:friend, %{:userID => x, _}}) -> x == userID end))
+    send pid, friend
+  end
+
+  def get_room(map, roomID, pid) do
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == roomID end))
+    send pid, room
+  end
+
+  def get_quest(map, resID, pid) do
+    [username, roomname, questname] = String.split(resID, "@")
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    quest = (room.quests |> Enum.find(fn({:quest, {:resID, resID2, _, _}}) -> resID2 == resID end))
+    send pid, quest
+  end
+  
+  def get_quest_pics(map, resID, pid) do
+    [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    quest_pic = (room.quest_pics |> Enum.find(fn({:quest_pic, {:resID, resID2, _, _}}) -> resID2 == resID end))
+    send pid, quest_pic
+  end
+
+  def set_notif(map, req, val, pid) do
     case val do
       0 -> List.delete(data.notifs, req)
       _ ->
@@ -94,13 +138,7 @@ defmodule Memo do
           end
     end
   end
-  
-  def get_friend do end
-  def get_room do end
-  def get_quest do end
-  def get_quest_pics do end
 
-  def set_notif(map, req, val, pid) do end
   def set_friend(map, req, val, pid) do end
   def set_room(map, req, val, pid) do end
   def set_quest(map, req, val, pid) do end
