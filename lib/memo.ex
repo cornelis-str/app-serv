@@ -106,26 +106,43 @@ defmodule Memo do
     end
   end
 
+  # user_data = %{
+  # :userID => lolcat,
+  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
+  # :friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
+  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :hasNew => false | true
+  # }
+
+  # room = %{
+  # :owner => "Kor-Nelzizs"
+  # :name => "Super Duper Room",
+  # :topic => "Underground BBBrony Canal",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, userID}, etc...]
+  # :quests => [%{:questID => questID, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
+  # }
   def get_friend(map, userID, pid) do
-    friend = (map.friends |> Enum.find(fn({:friend, %{:userID => x, _}}) -> x == userID end))
+    friend = (map.friends |> Enum.find(fn({:friend, %{:userID => x, :friends => _}}) -> x == userID end))
     send pid, friend
   end
 
   def get_room(map, roomID, pid) do
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == roomID end))
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == roomID end))
     send pid, room
   end
 
   def get_quest(map, resID, pid) do
     [username, roomname, questname] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
-    quest = (room.quests |> Enum.find(fn(%{:questID => x, _}) -> x == resID end))
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+    quest = (room.quests |> Enum.find(fn(%{:questID => x, :quest => _}) -> x == resID end))
     send pid, quest
   end
 
   def get_quest_pics(map, resID, pid) do
     [username, roomname, questname, missionPart, thingName] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     quest_pic = (room.quest_pics |> Enum.find(fn({:quest_pic, {:resID, resID2, _, _}}) -> resID2 == resID end))
     send pid, quest_pic
   end
@@ -204,11 +221,11 @@ defmodule Memo do
   end
 
   # user_data = %{
-  # :userID => lolcat,
-  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
-  # :friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
-  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
-  # :hasNew => false | true
+  # :1userID => lolcat,
+  # :2notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
+  # :3friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
+  # :4rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :5hasNew => false | true
   # }
 
   # room = %{
@@ -222,20 +239,34 @@ defmodule Memo do
   # }
   def set_quest(map, action, questID, quest, pid) do
     [username, roomname, questname] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, _}) -> x == "#{username}@#{roomname}" end))
+    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
-        updRoom = room.quests |> Map.delete(%{:questID => questID, _})                                        #Amanda-approved
-        updRooms = map.rooms |> Map.replace!(:quest, updRoom)
-        updMap = map |> Map.replace!(:rooms, updRooms)
-        send pid, {:ok}
+        room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
+        |> case do
+          nil->
+            #error handling
+          x ->
+            upd_quests = room.quests |> List.delete_at(index)
+            upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
+            upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+        end
       :add ->
-        room.quests |> Enum.find(fn(%{:questID => quest, _}) -> )
+        room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
         |> case do
           nil ->
-            #Ersätt
-          _ ->
             #Lägg till
+            upd_quests = [quest | room.quests]
+            upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
+            upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
+          x ->
+            #Ersätt
+            upd_quests = [quest | room.quests |> List.delete_at(index)]
+            upd_room = map.rooms |> Map.replace!(:quests, upd_quests)
+            upd_rooms = map.rooms |> Map.replace!(:quest, upd_room)
+            upd_map = map |> Map.replace!(:rooms, upd_rooms)
         end
     end
   end
