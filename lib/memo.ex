@@ -1,6 +1,23 @@
 defmodule Memo do
   require Logger
 
+  # user_data = {
+  # :userID => lolcat,
+  # :notifs => [{:friendReq, {:from, lolcat, :to, doggo}}, {:roomInv, {:room, [], :to, lolcat}}, etc...],
+  # :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
+  # :rooms => {:room, {}}, {:room, {}}, etc...},
+  # :hasNew => false,
+  # }
+  # room = {
+  # :name => "Super Duper Room",
+  # :topic => "",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, userID}, etc...]
+  # :quests => [{:quest, {:resID, resID, :json, <JsonString>}}]
+  # :quest_pics => [{:quest_pic, {:resID, resID, :pic, <<ByteArray>>}}]
+  # }
+  # Hämtar och ändrar user data på begäran.
+
   def start(file_path) do
     # Ta bort kommentering i lib/application.ex för att det ska fungera
     {:ok, _} = Task.Supervisor.start_child(Memo.TaskSupervisor, fn -> memo_mux([]) end)
@@ -37,24 +54,6 @@ defmodule Memo do
     end
   end
 
-  # user_data = {
-  # :userID => lolcat,
-  # :notifs => [{:friendReq, {:from, lolcat, :to, doggo}}, {:roomInv, {:room, [], :to, lolcat}}, etc...],
-  # :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
-  # :rooms => {:room, {}}, {:room, {}}, etc...},
-  # :hasNew => false,
-  # }
-  # room = {
-  # :name => namn,
-  # :topic => topic,
-  # :icon => {byteArray}
-  # :users => [{:user, userID}, etc...]
-  # :quests => [{:quest, }]
-  # }
-  # quests = {
-  # ???????????????????????????????
-  # }
-  # Hämtar och ändrar user data på begäran.
   def user_data_handler(user_data) do
     receive do
       {:get, pid, thing} -> send pid, {:memo, user_data[thing]}
@@ -81,8 +80,6 @@ defmodule Memo do
     end
   end
 
-  #Why would we need to replace friendrequests/roominvites??!? /A & C alldeles för sent på eftermiddagen
-  # Fixed /A
   def get_notif(data, req, val, pid) do
     case val do
       0 -> List.delete(data.notifs, req)
@@ -97,15 +94,17 @@ defmodule Memo do
           end
     end
   end
-
+  
   def get_friend do end
   def get_room do end
   def get_quest do end
+  def get_quest_pics do end
 
   def set_notif(map, req, val, pid) do end
   def set_friend(map, req, val, pid) do end
   def set_room(map, req, val, pid) do end
   def set_quest(map, req, val, pid) do end
+  def set_quest_pics(map, req, val, pid) do end
 
   # Sparar till och laddar från fil
   def file_mux(file_path) do
