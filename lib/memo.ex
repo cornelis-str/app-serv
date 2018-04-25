@@ -59,8 +59,8 @@ defmodule Memo do
     receive do
       {:get, pid, thing} ->
         case thing do
-          {:userID} -> send pid, user_data |> Map.get(:userId)
-          {:notifs} -> send pid, user_data |> Map.get(:notifs)
+          {:userID} -> send pid, user_data.userID
+          {:notifs} -> send pid, user_data.notifs
           {:friends, userID} ->
             get_friend user_data, userID, pid
           {:rooms, roomID} ->
@@ -70,7 +70,7 @@ defmodule Memo do
           {:quest_pic, resID} ->
             get_quest_pics user_data, resID, pid
           {:has_new} ->
-            send pid, user_data |> Map.get(:has_new)
+            send pid, user_data.has_new
         end
         user_data_handler(user_data)
       {:set, pid, action, value} ->
@@ -105,8 +105,18 @@ defmodule Memo do
     end
   end
 
+  # room = %{
+  # :owner => "Kor-Nelzizs"
+  # :name => "Super Duper Room",
+  # :topic => "Underground BBBrony Canal",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, userID}, etc...]
+  # :quests => [%{:questID => questID, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
+  # }
+
   def get_friend(map, userID, pid) do
-    friend = (map |> Map.get(:friends) |> Enum.find(nil, fn({:friend, %{:userID => x, _}}) -> x == userID end))
+    friend = (map.friends |> Enum.find(fn({:friend, %{:userID => x, _}}) -> x == userID end))
     send pid, friend
   end
 
