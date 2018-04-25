@@ -14,8 +14,8 @@ defmodule Memo do
   # :topic => "",
   # :icon => <<ByteArray>>
   # :users => [{:user, userID}, etc...]
-  # :quests => [{:quest, {:resID, resID, :json, <JsonString>}}]
-  # :quest_pics => [{:quest_pic, {:resID, resID, :pic, <<ByteArray>>}}]
+  # :quests => [%{:questID => questID, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
   # }
   # Hämtar och ändrar user data på begäran.
 
@@ -73,22 +73,26 @@ defmodule Memo do
             send pid, user_data |> Map.get(:has_new)
         end
         user_data_handler(user_data)
-      {:set, pid, thing, value} ->
-        case thing do
+      {:set, pid, action, value} ->
+        case action do
           {:userID} -> user_data |> Map.put(:userID, value)
-          {:notifs, notif} ->
-            set_notif user_data, notif, value, pid
-            |> user_data_handler
-          {:friends, userID} ->
-            set_friend user_data, userID, value, pid
+          {:notifs, notif, what} ->
+            set_notif user_data, what, notif, value, pid
             |> user_data_handler
 
-          {:rooms, roomID, roomPart} ->
-            set_room user_data, roomID, roomPart, value, pid
-          {:quest, questID} ->
-            set_quest user_data, questID, value, pid
-          {:quest_pic, resID} ->
-            set_quest_pics user_data, resID, value, pid
+          {:friends, userID, what} ->
+            set_friend user_data, what, userID, value, pid
+            |> user_data_handler
+
+          {:rooms, roomID, roomPart, what} ->
+            set_room user_data, what, roomID, roomPart, value, pid
+
+          {:quest, questID, what} ->
+            set_quest user_data, what, questID, value, pid
+
+          {:quest_pic, resID, what} ->
+            set_quest_pics user_data, what, resID, value, pid
+
           {:has_new} ->
             user_data
             |> Map.replace!(:has_new, value)
@@ -140,8 +144,8 @@ defmodule Memo do
     end
   end
 
-# :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
-  def set_friend(map, userID, friend, pid) do
+  # :friends => [{:friend, {:userID => id, :friends => []}}, etc...],
+  def set_friend(map, method, userID, friend, pid) do
     # hitta friend i listan
     # tabort friend
     # lägg till friend
@@ -158,17 +162,17 @@ defmodule Memo do
     end
   end
 
-# :rooms => [%{:roomId => roomID, :room => room}, etc...]
-# room = {
-# :owner => "Kor-Nelzizs",
-# :name => "Super Duper Room",
-# :topic => "Underground Brony Cabal",
-# :icon => <<ByteArray>>
-# :users => [{:user, userID}, etc...]
-# :quests => [{:quest, {:resID, resID, :json, <JsonString>}}]
-# :quest_pics => [{:quest_pic, {:resID, resID, :pic, <<ByteArray>>}}]
-# }
-  def set_room(map, roomID, roomPart, part, pid) do
+  # :rooms => [%{:roomId => roomID, :room => room}, etc...]
+  # room = {
+  # :owner => "Kor-Nelzizs",
+  # :name => "Super Duper Room",
+  # :topic => "Underground Brony Cabal",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, userID}, etc...]
+  # :quests => [%{:questID => questID, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
+  # }
+  def set_room(map, method, roomID, roomPart, part, pid) do
     # get room
     # find part
     # replace part
@@ -179,12 +183,21 @@ defmodule Memo do
       nil -> map |> Map.replace!(:rooms, [part | map.rooms])
       %{_, :room => room} ->
         case roomPart do
-          :room -> map |> Map.replace!(:rooms, [part | map.rooms |> ])
-          :owner ->
-          :name ->
-          :topic ->
-          :icon ->
+          :room ->
+            map |> Map.replace!(:rooms,
+            [part | map.rooms |> List.delete(%{:roomID => ^roomID,_})]
+            )
+          :owner -> map |> Map.replace!(:owner, part)
+          :name -> map |> Map.replace!(:name, part)
+          :topic -> map |> Map.replace!(:topic, part)
+          :icon -> map |> Map.replace!(:icon, part)
           :users ->
+            map.users
+            |> Enum.find(fn(^part) -> true end)
+            |> case do
+              nil -> map |> Map.replace!(:users, [part | map.users])
+              _ ->
+            end
           _ -> send pid, {:memo, "Use correct function"}
         end
     end
@@ -199,7 +212,7 @@ defmodule Memo do
   # :quests => [%{:questID => questID, :quest => <JsonString>}]
   # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
   # }
-  def set_quest(map, questID, quest, val, pid) do
+  def set_quest(map, action, questID, quest, pid) do
     case val do
       :del ->
         map.quests |> List.delete(quest)
@@ -215,7 +228,7 @@ defmodule Memo do
         end
     end
   end
-  def set_quest_pics(map, req, val, pid) do end
+  def set_quest_pics(map, what req, val, pid) do end
 
   # Sparar till och laddar från fil
   def file_mux(file_path) do
@@ -233,7 +246,5 @@ defmodule Memo do
 
   # TODO
   # Skapar ny user
-  def create_user(id) do
-
-   end
+  def create_user(id) do end
 end
