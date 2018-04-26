@@ -137,7 +137,7 @@ defmodule Serv do
 # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
 # Om du lägger till ett quest skickas detta vidare till action roomhandler, som tar emot: {:room, {room_id, action}}
 # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
-# how = :add eller :del, detta
+# how = :add eller :del
   defp put_req(str) do
     [id, rid, json] = str |> String.split(" ")
     decoded = Jason.decode!(json)
@@ -154,7 +154,7 @@ defmodule Serv do
         send :memo_mux, {:room, {room_id, {:set, self(), {:room, :topic, decoded |> Map.fetch("description"), :add}}}}
 
         # send :memo_mux, {:room, {room_id, {:set, self(), {:room, :members, decoded |> Map.fetch("members"), :add}}}}
-        # Not going to work Marcus konvertering: %{"im" => 312312414, userName => "Amanda N"}
+        # Not going to work Marcus konvertering: "members" => [%{"im" => 312312414, "userName" => "Amanda N"}, etc... ]
         # Vår users: [{:user, user_id}, etc...]
         # fetch returnerar {:ok, saken} >_>
 
