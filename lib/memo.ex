@@ -159,8 +159,8 @@ defmodule Memo do
       {:set, pid, {:room, which_room_part, part_to_add, how}} ->
         set_room room_data, how, which_room_part, part_to_add, pid
 
-      {:set, pid, {:room, :del}} ->
-        "Code for deletion of room here" #TODO
+      {:set, pid, {:room, room_id, :del}} ->
+        send pid, {:memo, "deleting room #{room_id}"}
 
       {:set, pid, {:quest, quest_id, quest, how}} ->
         set_quest room_data, how, quest_id, quest, pid #TODO updatera för att använda room_map
@@ -300,73 +300,45 @@ defmodule Memo do
     end
   end
 
-  #TODO använd room_data/room_map istället för user_data/user_data
-  def set_quest(user_data, action, quest_id, quest, pid) do
-    [username, roomname, _] = String.split(quest_id, "@")
-    room = (user_data.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    case action do
-      :del ->
-        room.quests |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
-        |> case do
-          nil->
-            send pid, {:memo, "Cannot remove files that do not exist"}
-          index ->
-            upd_quests = room.quests |> List.delete_at(index)
-            upd_room = user_data.rooms |> Map.replace!(:quests, upd_quests)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-        end
-      :add ->
-        room.quests |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
-        |> case do
-          nil ->
-            #Lägg till
-            upd_quests = [quest | room.quests]
-            upd_room = user_data.rooms |> Map.replace!(:quests, upd_quests)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-          index ->
-            #Ersätt
-            upd_quests = [quest | room.quests |> List.delete_at(index)]
-            upd_room = user_data.rooms |> Map.replace!(:quests, upd_quests)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest, upd_room)
-            user_data |> Map.replace!(:rooms, upd_rooms)
-        end
+  def set_quest(room_data, how, quest_id, quest, pid) do
+    room_data.quests
+    |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
+    |> case do
+      nil when how == :add ->
+        #Lägg till
+        room_data |> Map.replace!(:quests, [quest | room_data.quests])
+      nil when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
+
+      index when how == :add ->
+        #Ersätt
+        room_data
+        |> Map.replace!(:quest, [quest | room_data.quests |> List.delete_at(index)])
+
+      _ when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
     end
   end
 
-  #TODO använd room_data/room_map istället för user_data/user_data
-  def set_quest_pics(user_data, action, quest_pic_id, pic, pid) do
-    [username, roomname, _, _, _] = String.split(quest_pic_id, "@")
-    room = (user_data.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    case action do
-      :del ->
-        room.quest_pics |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
-        |> case do
-          nil->
-            send pid, {:memo, "Cannot remove files that do not exist"}
-          index ->
-            upd_quests_pic = room.quest_pics |> List.delete_at(index)
-            upd_room = user_data.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest_pic, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-        end
-      :add ->
-        room.quest_pics |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
-        |> case do
-          nil ->
-            #Lägg till
-            upd_quests_pic = [pic | room.quest_pics]
-            upd_room = user_data.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest_pic, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-          index ->
-            #Ersätt
-            upd_quests_pic = [pic | room.quest_pics |> List.delete_at(index)]
-            upd_room = user_data.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest_pic, upd_room)
-            user_data |> Map.replace!(:rooms, upd_rooms)
-        end
+  def set_quest_pics(room_data, how, quest_pic_id, pic, pid) do
+    room_data.quest_pics
+    |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
+    |> case do
+      nil when how == :add ->
+        room_data
+        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics])
+
+      nil when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
+
+      index when how == :add ->
+        room_data
+        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics |> List.delete_at(index)])
+
+      index when how == :del ->
+        room_data
+        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics |> List.delete_at(index)])
+
     end
   end
 
