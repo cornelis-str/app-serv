@@ -79,7 +79,7 @@ defmodule Memo do
           # skicka :save och :quit till alla user_data_handler processer
           save_exit = fn([h|t], f) ->
             case h do
-              {user_id, pid} ->
+              {_, pid} ->
                 #send pid, {:save, user_id}
                 send pid, {:quit}
                 f.(t,f)
@@ -110,7 +110,7 @@ defmodule Memo do
         user_data_handler(user_data)
 
       {:get, pid,{:room_list}} ->
-        get_room_list user_data, pid           #TODO implementera get_rooms
+        get_room_list user_data, pid
         user_data_handler(user_data)
 
       {:get, pid,{:has_new}} ->
@@ -130,8 +130,8 @@ defmodule Memo do
         set_friend user_data, how, user_id, value, pid
         |> user_data_handler()
 
-      {:set, pid, value, {:rooms, room_id, how}} ->
-        set_rooms user_data, how, pid           #TODO implementera set_rooms
+      {:set, pid, {:rooms, room_id, how}} ->
+        set_users_rooms user_data, how, room_id, pid
         |> user_data_handler()
 
       {:set, pid, value, {:has_new}} ->
@@ -144,28 +144,30 @@ defmodule Memo do
     end
   end
 
+  # "how" can be :del or :add. With icons and text this is ignored.
   def room_data_handler(room_data) do
     receive do
       {:get, pid, {:room, room_part}} ->
         get_room room_data, room_part, pid
 
       {:get, pid, {:quest, quest_id}} ->
-        get_quest room_data, quest_id, pid          #TODO updatera för att använda room_map
+        get_quest room_data, quest_id, pid
 
       {:get, pid, {:quest_pic, resource_id}} ->
-        get_quest_pics room_data, resource_id, pid  #TODO updatera för att använda room_map
+        get_quest_pics room_data, resource_id, pid
 
       {:set, pid, {:room, which_room_part, part_to_add, how}} ->
         set_room room_data, how, which_room_part, part_to_add, pid
 
+      {:set, pid, {:room, :del}} ->
+        "Code for deletion of room here" #TODO
+
       {:set, pid, {:quest, quest_id, quest, how}} ->
-        set_quest room_data, how, quest_id, quest pid #TODO updatera för att använda room_map
+        set_quest room_data, how, quest_id, quest, pid #TODO updatera för att använda room_map
 
       {:set, pid, {:quest_pic, resource_id, resource, how}} ->
         set_quest_pics room_data, how, resource_id, resource, pid #TODO updatera för att använda room_map
 
-      {:set, pid, {:room, :del}} ->
-        "Code for deletion of room here" #TODO
     end
   end
 
@@ -241,59 +243,60 @@ defmodule Memo do
     end
   end
 
-  # TODO implementera
-  def set_rooms(user_data, how, pid) do end
+  def set_users_rooms(user_data, how, room_id, pid) do
+    user_data
+    |> Enum.find_index(fn %{:roomID => ^room_id} -> true end)
+    |> case do
+      nil when how == :add ->
+        user_data
+        |> Map.replace!(:rooms, [%{:room_id => room_id} | user_data.rooms])
 
-  #TODO använd room_data/room_map istället för user_data/user_data
+      nil when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
+
+      index when how == :del ->
+        user_data
+        |> Map.replace!(:rooms, user_data |> List.delete_at(index))
+
+      _ when how == :add ->
+        user_data
+    end
+  end
+
   def set_room(room_data, how, room_part, part, pid) do
     case room_part do
-      nil when method == :del -> send pid, {:memo, "Can't delete nonexisting"}
+      :owner ->
+        room_data |> Map.replace!(:owner, part)
 
-      %{:room_id => _, :room => _} ->
-        case room_part do
-          :room when method == :add ->
-            user_data |> Map.replace!(:rooms, [part | user_data.rooms
-            |> Enum.find(fn(%{:room_id => ^room_id, :room => _}) -> true end)
-            |> List.delete()])
+      :name ->
+        room_data |> Map.replace!(:name, part)
 
-          :room when method == :del ->
-            user_data |> Map.replace!(:rooms,
-            user_data.rooms
-            |> Enum.find(fn (%{:room_id => ^room_id, :room => _}) -> true end)
-            |> List.delete() )
+      :topic ->
+        room_data |> Map.replace!(:topic, part)
 
-          :owner ->
-            user_data |> Map.replace!(:owner, part)
+      :icon ->
+        room_data |> Map.replace!(:icon, part)
 
-          :name ->
-            user_data |> Map.replace!(:name, part)
-
-          :topic ->
-            user_data |> Map.replace!(:topic, part)
-
-          :icon ->
-            user_data |> Map.replace!(:icon, part)
-
-          :users when method == :add ->
-            user_data.users
-            |> Enum.find_index(fn(^part) -> true end)
-            |> case do
+      :users when how == :add ->
+        room_data.users
+        |> Enum.find_index(fn(^part) -> true end)
+        |> case do
               nil ->
-                user_data |> Map.replace!(:users, [part | user_data.users])
+                room_data
+                |> Map.replace!(:users, [part | room_data.users])
               index ->
-                user_data |> Map.replace!(:users, [part |
-                user_data.users
+                room_data
+                |> Map.replace!(:users, [part | room_data.users
                 |> List.delete_at(index)])
             end
 
-          :users when method == :del ->
-            user_data |> Map.replace!(:users,
-            user_data.users
-            |> List.delete_at(user_data.users
-            |> Enum.find_index(fn(^part) -> true end)))
+      :users when how == :del ->
+        room_data
+        |> Map.replace!(:users, room_data.users
+        |> List.delete_at(room_data.users
+        |> Enum.find_index(fn(^part) -> true end)))
 
-          _ -> send pid, {:memo, "SYNTAX ERROR"}
-        end
+      _ -> send pid, {:memo, "SYNTAX ERROR"}
     end
   end
 
