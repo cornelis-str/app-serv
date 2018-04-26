@@ -33,8 +33,10 @@ defmodule Memo do
   # Hämtar och ändrar user data på begäran.
   def start(file_path) do
     # Ta bort kommentering i lib/application.ex för att det ska fungera
-    {:ok, _} = Task.Supervisor.start_child(Memo.TaskSupervisor, fn -> memo_mux([], []) end)
-    #spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
+
+    {:ok, pid} = Task.Supervisor.start_child(Memo.TaskSupervisor, fn -> memo_mux([]) end)
+    Process.register(pid, :memo_mux)
+    spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
   end
 
   def memo_mux(user_pid_list, room_pid_list) do
@@ -136,7 +138,6 @@ defmodule Memo do
         user_data
         |> Map.replace!(:has_new, value)
         |> user_data_handler()
-      end
 
       {:save, user_id} -> send :file_mux, {:save, {user_id, user_data}}
       {:quit} -> :ok
