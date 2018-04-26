@@ -92,19 +92,20 @@ defmodule Serv do
   # Ta hand om POS requests:
   # ID:userID RID:
   # FROM:userID TO:userID
-  # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, str}}}
-  # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, str}
+  # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, data}}}
+  # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, data}
   defp pos_req(str) do
-    [h | t] = String.split(str, " ")
-    [_ | user_id2] = String.split(t, ":")
+    [h , t] = String.split(str, " ")
+    [_ , user_id2] = String.split(t, ":")
     String.split(h, ":")
     |> case do
-      ["ID" | user_id] -> send :memo_mux, {:user, {user_id, {:create_user, nil}}}
-      ["FROM" | user_id] -> send :memo_mux, {:user, {user_id, {:set, self, str, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
-      receive do
-        {:memo, :ok} -> Logger.info("notif set")
-        {:error, error} -> Logger.info(error)
-      end
+      ["ID", user_id] -> send :memo_mux, {:user, {user_id, {:create_user, nil}}}
+      ["FROM", user_id] -> send :memo_mux, {:user, {user_id, {:set, self(),
+      %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
+    end
+    receive do
+      {:memo, :ok} -> Logger.info("notif set")
+      {:error, error} -> Logger.info(error)
     end
   end
 
@@ -133,7 +134,26 @@ defmodule Serv do
 # TODO
 # Tar hand om put requests som ser ut som följande:
 # ID:user_id RID:thing@userName@roomName | @missionName <JSON>
-  defp put_req(json, socket) do end
+# Skickar till memo_mux som tar emot: {:room, {room_id, action}}
+# Om du lägger till ett quest skickas detta vidare till action roomhandler, som tar emot: {:set, self, {:quest, quest_id, json}}
+# Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action:
+  defp put_req(str) do
+    [id, rid, json] = str |> String.split(" ")
+    decoded = Jason.decode!(json)
+    [_, user_id] = id |> String.split(":")
+    [_, res_id] = rid |> String.split(":")
+    String.split(res_id, "@")
+    |> case do
+      # Room
+      [type, owner, room_id] ->
+        "Ingen gillar compilation errors"
+        #TODO: send :memo_mux * antal rum-attributer, uppdatera alla olika room_parts
+
+      # Quest
+      [type, owner, room_id, quest_id] ->
+        send :memo_mux, {:room, {room_id, {:set, self(), {:quest, quest_id, json}}}}        # I heard you like nested data-structures...
+    end
+  end
 
   # TODO
   # Ska ta hand om DEL requests
