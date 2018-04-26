@@ -33,6 +33,7 @@ defmodule Memo do
   # Hämtar och ändrar user data på begäran.
   def start(file_path) do
     # Ta bort kommentering i lib/application.ex för att det ska fungera
+
     {:ok, pid} = Task.Supervisor.start_child(Memo.TaskSupervisor, fn -> memo_mux([]) end)
     Process.register(pid, :memo_mux)
     spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
@@ -77,56 +78,66 @@ defmodule Memo do
       {:quit} ->
           # skicka :save och :quit till alla user_data_handler processer
           save_exit = fn([h|t], f) ->
-
             case h do
-
               {user_id, pid} ->
-                send pid, {:save, user_id}
+                #send pid, {:save, user_id}
                 send pid, {:quit}
                 f.(t,f)
-
               end
           end
+
           save_exit.(user_pid_list |> Map.to_list(), save_exit)
+          save_exit.(room_pid_list |> Map.to_list(), save_exit)
 
           # TODO gå inte vidare för än alla barnprocesser är döda
-          send :ld, {:quit}
-          send :file_mux, {:quit}
+          #send :ld, {:quit}
+          #send :file_mux, {:quit}
     end
   end
 
   def user_data_handler(user_data) do
     receive do
-      {:get, pid, thing} ->
-        case thing do
-          {:user_id} -> send pid, user_data.user_id
-          {:notifs} -> send pid, user_data.notifs
-          {:friends, user_id} ->
-            get_friend user_data, user_id, pid
-          {:rooms, room_id} ->
-            get_rooms user_data, pid           #TODO implementera get_rooms
-          {:has_new} ->
-            send pid, user_data.has_new
-        end
+      {:get, pid, thing, {:user_id}} ->
+        send pid, user_data.user_id
         user_data_handler(user_data)
-      {:set, pid, action, value} ->
-        case action do
-          {:user_id} -> user_data |> Map.put(:user_id, value)
-          {:notifs, what} ->
-            set_notif user_data, what, value, pid
 
-          {:friends, user_id, what} ->
-            set_friend user_data, what, user_id, value, pid
+      {:get, pid, thing, {:notifs}} ->
+        send pid, user_data.notifs
+        user_data_handler(user_data)
 
-          {:rooms, room_id, what} ->
-            set_rooms user_data, pid           #TODO implementera set_rooms
+      {:get, pid, thing, {:firends, user_id}} ->
+        get_friend user_data, user_id, pid
+        user_data_handler(user_data)
 
-          {:has_new} ->
-            user_data
-            |> Map.replace!(:has_new, value)
+      {:get, pid, thing, {:rooms, room_id}} ->
+        get_rooms user_data, pid           #TODO implementera get_rooms
+        user_data_handler(user_data)
 
-        end
-        |> user_data_handler()              # IT WORKS MTFKER!!!
+      {:get, pid, thing, {:has_new}} ->
+        send pid, user_data.has_new
+        user_data_handler(user_data)
+
+      {:set, pid, value, {:user_id}} ->
+        user_data
+        |> Map.put(:user_id, value)
+        |> user_data_handler()
+
+      {:set, pid, value, {:notifs, how}} ->
+        set_notif user_data, how, value, pid
+        |> user_data_handler()
+
+      {:set, pid, value, {:friends, user_id, how}} ->
+        set_friend user_data, how, user_id, value, pid
+        |> user_data_handler()
+
+      {:set, pid, value, {:rooms, room_id, how}} ->
+        set_rooms user_data, how, pid           #TODO implementera set_rooms
+        |> user_data_handler()
+
+      {:set, pid, value, {:has_new}} ->
+        user_data
+        |> Map.replace!(:has_new, value)
+        |> user_data_handler()
 
       {:save, user_id} -> send :file_mux, {:save, {user_id, user_data}}
       {:quit} -> :ok
@@ -172,8 +183,10 @@ defmodule Memo do
         |> case do
           true -> send pid, {:memo, :ok}
           false ->
-            user_data |> Map.replace!(:notifs, [notif | user_data.notifs])
+            new_user_data = user_data
+            |> Map.replace!(:notifs, [notif | user_data.notifs])
             send pid, {:memo, :ok}
+            new_user_data
           end
     end
   end
