@@ -89,16 +89,22 @@ defmodule Serv do
     end
   end
 
-  # TODO
   # Ta hand om POS requests:
-  # POS ID:userID RID:
-  # POS FROM:userID TO:userID
+  # ID:userID RID:
+  # FROM:userID TO:userID
+  # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, str}}}
+  # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, str}
   defp pos_req(str) do
     [h | t] = String.split(str, " ")
+    [_ | user_id2] = String.split(t, ":")
     String.split(h, ":")
     |> case do
-      ["ID" | user_id] -> send :memo_mux, 
-      ["FROM" | user_id] ->
+      ["ID" | user_id] -> send :memo_mux, {:user, {user_id, {:create_user, nil}}}
+      ["FROM" | user_id] -> send :memo_mux, {:user, {user_id, {:set, self, str, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
+      receive do
+        {:memo, :ok} -> Logger.info("notif set")
+        {:error, error} -> Logger.info(error)
+      end
     end
   end
 
@@ -126,15 +132,8 @@ defmodule Serv do
 
 # TODO
 # Tar hand om put requests som ser ut som följande:
-# PUT ID:user_id RID:thing@userName@roomName | @missionName <JSON>
-# <JSON> nytt rum:
-# room: {"description":"alicia","members":[{"im":2131558401,"userName":"Alicia H"}],"questList":[],"roomName":"alicia"}
-# <JSON> ny quest/events | questchain/quest:
-# questchain: {"chain":[{"allowSeveralCompletions":false,"completed":false,"currentPart":0,"description":"that","difficulty":4.5,"name":"this",
-# "noRequirement":false,"requirePicture":false,"requireText":true,"timeLimit":0,"timeLimitEnabled":true}],"name":"alicias quest","questAccepted":false}
-  defp put_req(json, socket) do
-
-  end
+# ID:user_id RID:thing@userName@roomName | @missionName <JSON>
+  defp put_req(json, socket) do end
 
   # TODO
   # Ska ta hand om DEL requests

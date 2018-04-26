@@ -49,7 +49,7 @@ defmodule Memo do
             send user_pid_list[user_id], action
             memo_mux new_user_pid, room_pid_list
 
-          nil when method == :add ->
+          nil when method == :set ->
             new_user_pid = user_pid_list |> Map.put(user_id, spawn fn -> load_user(user_id) |> user_data_handler() end)
             send user_pid_list[user_id], action
             memo_mux new_user_pid, room_pid_list
