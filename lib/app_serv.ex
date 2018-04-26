@@ -90,9 +90,17 @@ defmodule Serv do
   end
 
   # TODO
-  # Ta hand om POS requests
-  defp pos_req(_) do end
-
+  # Ta hand om POS requests:
+  # POS ID:userID RID:
+  # POS FROM:userID TO:userID
+  defp pos_req(str) do
+    [h | t] = String.split(str, " ")
+    String.split(h, ":")
+    |> case do
+      ["ID" | user_id] -> send :memo_mux, 
+      ["FROM" | user_id] ->
+    end
+  end
 
   # Läser in len stor bild i 1024 bytes bitar
   defp pic_req(mem, 0, _), do: mem
@@ -109,12 +117,23 @@ defmodule Serv do
     end
   end
 
-  # TODO
-  # Ska ta hand om PUT requests som != PIC
+  # Echoserver:
   defp put_req(json, socket) do
     #IO.inspect json
     write_line("#{json}\r\n\r\n", socket)
     Logger.info("Sent mess")
+  end
+
+# TODO
+# Tar hand om put requests som ser ut som följande:
+# PUT ID:user_id RID:thing@userName@roomName | @missionName <JSON>
+# <JSON> nytt rum:
+# room: {"description":"alicia","members":[{"im":2131558401,"userName":"Alicia H"}],"questList":[],"roomName":"alicia"}
+# <JSON> ny quest/events | questchain/quest:
+# questchain: {"chain":[{"allowSeveralCompletions":false,"completed":false,"currentPart":0,"description":"that","difficulty":4.5,"name":"this",
+# "noRequirement":false,"requirePicture":false,"requireText":true,"timeLimit":0,"timeLimitEnabled":true}],"name":"alicias quest","questAccepted":false}
+  defp put_req(json, socket) do
+
   end
 
   # TODO
@@ -126,7 +145,7 @@ defmodule Serv do
   defp get_req(_) do end
 
 
-  # Läser bytes antal bytes från socker
+  # Läser bytes antal bytes från socker-sött
   defp read_bytes(socket, bytes) do
     case :gen_tcp.recv(socket, bytes) do
       {:ok, data} -> data
@@ -142,6 +161,14 @@ defmodule Serv do
     end
   end
 
+  # Skickar medelande till socket
+  defp write_line(line, socket) do
+    case :gen_tcp.send(socket, line) do
+      {:error, error} -> {:error, error}
+      _ -> :ok
+    end
+  end
+
   # TODO InProgress
   # Skickar data från lista till socket
   defp send_mess([], socket), do: write_line("\r\n", socket)
@@ -149,14 +176,6 @@ defmodule Serv do
     case write_line(h, socket) do
       :ok ->  send_mess(t, socket)
       {:error, error} -> Logger.info("send_mess: #{error}")
-    end
-  end
-
-  # Skickar medelande till socket
-  defp write_line(line, socket) do
-    case :gen_tcp.send(socket, line) do
-      {:error, error} -> {:error, error}
-      _ -> :ok
     end
   end
 end

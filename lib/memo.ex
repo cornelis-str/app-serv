@@ -5,7 +5,7 @@ defmodule Memo do
   # :user_id => lolcat,
   # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
   # :friends => [{:friend, %{:user_id => id, :friends => []}}, etc...],
-  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :rooms => [%{:roomID => roomID}, etc...],
   # :hasNew => false | true
   # }
   # room = %{
@@ -17,12 +17,36 @@ defmodule Memo do
   # :quests => [%{:questID => questID, :quest => <JsonString>}]
   # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
   # }
+
+
+
+  # user_data_update = %{
+  # :user_id => lolcat,
+  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
+  # :friends => [{:friend, %{:user_id => id, :friends => []}}, etc...],
+  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :hasNew => false | true
+  # }
+
+  # room = %{
+  # :owner => "Kor-Nelzizandaaaaaa"
+  # :name => "Super Duper Room",
+  # :topic => "Underground Bayblade Cabal",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, user_id}, etc...]
+  # :quests => [%{:questID => questID, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
+  # }
+
+
+
   # Hämtar och ändrar user data på begäran.
 
   def start(file_path) do
     # Ta bort kommentering i lib/application.ex för att det ska fungera
-    {:ok, _} = Task.Supervisor.start_child(Memo.TaskSupervisor, fn -> memo_mux([]) end)
-    spawn(fn -> file_mux(file_path) end) |> Process.register(:fmux)
+    {:ok, pid} = Task.Supervisor.start_child(Memo.TaskSupervisor, fn -> memo_mux([]) end)
+    Process.register(pid, :memo_mux)
+    spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
   end
 
   def memo_mux(pid_list) do
@@ -49,7 +73,7 @@ defmodule Memo do
 
           # TODO gå inte vidare för än alla barnprocesser är döda
           send :ld, {:quit}
-          send :fmux, {:quit}
+          send :file_mux, {:quit}
     end
   end
 
@@ -61,7 +85,7 @@ defmodule Memo do
           {:notifs} -> send pid, user_data.notifs
           {:friends, user_id} ->
             get_friend user_data, user_id, pid
-          {:rooms, roomID} ->
+          {:room, roomID} ->
             get_room user_data, roomID, pid
           {:quest, questID} ->
             get_quest user_data, questID, pid
@@ -80,7 +104,7 @@ defmodule Memo do
           {:friends, user_id, what} ->
             set_friend user_data, what, user_id, value, pid
 
-          {:rooms, roomID, roomPart, what} ->
+          {:room, roomID, roomPart, what} ->
             set_room user_data, what, roomID, roomPart, value, pid
 
           {:quest, questID, what} ->
@@ -96,7 +120,7 @@ defmodule Memo do
         end
         |> user_data_handler()              # IT WORKS MTFKER!!!
 
-      {:save, id} -> send :fmux, {:save, {id, user_data}}
+      {:save, id} -> send :file_mux, {:save, {id, user_data}}
       {:quit} -> :ok
     end
   end
@@ -321,7 +345,9 @@ defmodule Memo do
   # :quests => [%{:questID => questID, :quest => <JsonString>}]
   # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
   # }
-  # Skapar ny user
+
+  # Skapar ny user_data
+  # TODO: ladda info från minnet om det finns
   def create_user(id) do
     %{:user_id => id, :notifs => [], :friends => [], :rooms => [], :hasNew => false}
   end
