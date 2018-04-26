@@ -2,10 +2,10 @@ defmodule Memo do
   require Logger
 
   # user_data = %{
-  # :userID => lolcat,
-  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
-  # :friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
-  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :user_id => lolcat,
+  # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}}, etc...],
+  # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
+  # :rooms => [%{:room_id => room_id, :room => room}, etc...],
   # :hasNew => false | true
   # }
   # room = %{
@@ -13,9 +13,9 @@ defmodule Memo do
   # :name => "Super Duper Room",
   # :topic => "Underground Bayblade Cabal",
   # :icon => <<ByteArray>>
-  # :users => [{:user, userID}, etc...]
-  # :quests => [%{:questID => questID, :quest => <JsonString>}]
-  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
+  # :users => [{:user, user_id}, etc...]
+  # :quests => [%{:quest_id => quest_id, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
   # }
   # Hämtar och ändrar user data på begäran.
 
@@ -25,27 +25,33 @@ defmodule Memo do
     spawn(fn -> file_mux(file_path) end) |> Process.register(:fmux)
   end
 
-  def memo_mux(pid_list) do
+  def memo_mux(user_pid_list, room_pid_list) do
     receive do
-      {:msg, {id, action}} ->
-        case pid_list[id] do
+      {:user, {user_id, action}} ->
+        case user_pid_list[user_id] do
           nil ->
-            pid_list |> Map.put(id, spawn fn -> create_user(id) |> user_data_handler() end)
-            send pid_list[id], action
+            user_pid_list |> Map.put(user_id, spawn fn -> create_user(user_id) |> user_data_handler() end)
+            send user_pid_list[user_id], action
           pid -> send pid, action
         end
-        memo_mux pid_list
+        memo_mux user_pid_list
+
+      {:room, {room_id, action}} ->
+        case room_pid_list[room_id] do
+
+        end
+
       {:quit} ->
           # skicka :save och :quit till alla user_data_handler processer
           save_exit = fn([h|t], f) ->
             case h do
-              {id, pid} ->
-                send pid, {:save, id}
+              {user_id, pid} ->
+                send pid, {:save, user_id}
                 send pid, {:quit}
                 f.(t,f)
               end
           end
-          save_exit.(pid_list |> Map.to_list(), save_exit)
+          save_exit.(user_pid_list |> Map.to_list(), save_exit)
 
           # TODO gå inte vidare för än alla barnprocesser är döda
           send :ld, {:quit}
@@ -57,37 +63,37 @@ defmodule Memo do
     receive do
       {:get, pid, thing} ->
         case thing do
-          {:userID} -> send pid, user_data.userID
+          {:user_id} -> send pid, user_data.user_id
           {:notifs} -> send pid, user_data.notifs
-          {:friends, userID} ->
-            get_friend user_data, userID, pid
-          {:rooms, roomID} ->
-            get_room user_data, roomID, pid
-          {:quest, questID} ->
-            get_quest user_data, questID, pid
-          {:quest_pic, resID} ->
-            get_quest_pics user_data, resID, pid
+          {:friends, user_id} ->
+            get_friend user_data, user_id, pid
+          {:rooms, room_id} ->
+            get_room user_data, room_id, pid
+          {:quest, quest_id} ->
+            get_quest user_data, quest_id, pid
+          {:quest_pic, resource_id} ->
+            get_quest_pics user_data, resource_id, pid
           {:has_new} ->
             send pid, user_data.has_new
         end
         user_data_handler(user_data)
       {:set, pid, action, value} ->
         case action do
-          {:userID} -> user_data |> Map.put(:userID, value)
+          {:user_id} -> user_data |> Map.put(:user_id, value)
           {:notifs, what} ->
             set_notif user_data, what, value, pid
 
-          {:friends, userID, what} ->
-            set_friend user_data, what, userID, value, pid
+          {:friends, user_id, what} ->
+            set_friend user_data, what, user_id, value, pid
 
-          {:rooms, roomID, roomPart, what} ->
-            set_room user_data, what, roomID, roomPart, value, pid
+          {:rooms, room_id, room_part, what} ->
+            set_room user_data, what, room_id, room_part, value, pid
 
-          {:quest, questID, what} ->
-            set_quest user_data, what, questID, value, pid
+          {:quest, quest_id, what} ->
+            set_quest user_data, what, quest_id, value, pid
 
-          {:quest_pic, resID, what} ->
-            set_quest_pics user_data, what, resID, value, pid
+          {:quest_pic, resource_id, what} ->
+            set_quest_pics user_data, what, resource_id, value, pid
 
           {:has_new} ->
             user_data
@@ -96,32 +102,32 @@ defmodule Memo do
         end
         |> user_data_handler()              # IT WORKS MTFKER!!!
 
-      {:save, id} -> send :fmux, {:save, {id, user_data}}
+      {:save, user_id} -> send :fmux, {:save, {user_id, user_data}}
       {:quit} -> :ok
     end
   end
 
-  def get_friend(map, userID, pid) do
-    friend = (map.friends |> Enum.find(fn({:friend, %{:userID => x, :friends => _}}) -> x == userID end))
+  def get_friend(map, user_id, pid) do
+    friend = (map.friends |> Enum.find(fn({:friend, %{:user_id => x, :friends => _}}) -> x == user_id end))
     send pid, friend
   end
 
-  def get_room(map, roomID, pid) do
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == roomID end))
+  def get_room(map, room_id, pid) do
+    room = (map.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == room_id end))
     send pid, room
   end
 
-  def get_quest(map, resID, pid) do
-    [username, roomname, _] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    quest = (room.quests |> Enum.find(fn(%{:questID => x, :quest => _}) -> x == resID end))
+  def get_quest(map, resource_id, pid) do
+    [username, roomname, _] = String.split(resource_id, "@")
+    room = (map.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+    quest = (room.quests |> Enum.find(fn(%{:quest_id => x, :quest => _}) -> x == resource_id end))
     send pid, quest
   end
 
-  def get_quest_pics(map, resID, pid) do
-    [username, roomname, _, _, _] = String.split(resID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    quest_pic = (room.quest_pics |> Enum.find(fn(%{:quest_picID => x, :pic => _}) -> x == resID end))
+  def get_quest_pics(map, resource_id, pid) do
+    [username, roomname, _, _, _] = String.split(resource_id, "@")
+    room = (map.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+    quest_pic = (room.quest_pics |> Enum.find(fn(%{:quest_pic_id => x, :pic => _}) -> x == resource_id end))
     send pid, quest_pic
   end
 
@@ -140,9 +146,9 @@ defmodule Memo do
     end
   end
 
-  def set_friend(map, method, userID, friend, pid) do
+  def set_friend(map, method, user_id, friend, pid) do
     map.friends
-    |> Enum.find_index(fn {:friend, %{:userID => ^userID, :friends => _}} -> true end)
+    |> Enum.find_index(fn {:friend, %{:user_id => ^user_id, :friends => _}} -> true end)
     |> case do
       nil when method == :add ->
         map
@@ -164,25 +170,25 @@ defmodule Memo do
     end
   end
 
-  def set_room(map, method, roomID, roomPart, part, pid) do
+  def set_room(map, method, room_id, room_part, part, pid) do
     map.rooms
-    |> Enum.find(fn(%{:roomID => ^roomID, :room => _}) -> true end)
+    |> Enum.find(fn(%{:room_id => ^room_id, :room => _}) -> true end)
     |> case do
       nil when method == :add -> map |> Map.replace!(:rooms, [part | map.rooms])
 
       nil when method == :del -> send pid, {:memo, "Can't delete nonexisting"}
 
-      %{:roomID => _, :room => _} ->
-        case roomPart do
+      %{:room_id => _, :room => _} ->
+        case room_part do
           :room when method == :add ->
             map |> Map.replace!(:rooms, [part | map.rooms
-            |> Enum.find(fn(%{:roomID => ^roomID, :room => _}) -> true end)
+            |> Enum.find(fn(%{:room_id => ^room_id, :room => _}) -> true end)
             |> List.delete()])
 
           :room when method == :del ->
             map |> Map.replace!(:rooms,
             map.rooms
-            |> Enum.find(fn (%{:roomID => ^roomID, :room => _}) -> true end)
+            |> Enum.find(fn (%{:room_id => ^room_id, :room => _}) -> true end)
             |> List.delete() )
 
           :owner ->
@@ -221,12 +227,12 @@ defmodule Memo do
   end
 
 
-  def set_quest(map, action, questID, quest, pid) do
-    [username, roomname, _] = String.split(questID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+  def set_quest(map, action, quest_id, quest, pid) do
+    [username, roomname, _] = String.split(quest_id, "@")
+    room = (map.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
-        room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
+        room.quests |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
         |> case do
           nil->
             send pid, {:memo, "Cannot remove files that do not exist"}
@@ -237,7 +243,7 @@ defmodule Memo do
             upd_map = map |> Map.replace!(:rooms, upd_rooms)
         end
       :add ->
-        room.quests |> Enum.find_index(fn(%{:questID => id, :quest => _}) -> id == questID end)
+        room.quests |> Enum.find_index(fn(%{:quest_id => quest_id, :quest => _}) -> true end)
         |> case do
           nil ->
             #Lägg till
@@ -255,12 +261,12 @@ defmodule Memo do
     end
   end
 
-  def set_quest_pics(map, action, quest_picID, pic, pid) do
-    [username, roomname, _, _, _] = String.split(quest_picID, "@")
-    room = (map.rooms |> Enum.find(fn(%{:roomID => x, :room => _}) -> x == "#{username}@#{roomname}" end))
+  def set_quest_pics(map, action, quest_pic_id, pic, pid) do
+    [username, roomname, _, _, _] = String.split(quest_pic_id, "@")
+    room = (map.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
     case action do
       :del ->
-        room.quest_pics |> Enum.find_index(fn(%{:quest_picID => id, :quest_pic => _}) -> id == quest_picID end)
+        room.quest_pics |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
         |> case do
           nil->
             send pid, {:memo, "Cannot remove files that do not exist"}
@@ -271,7 +277,7 @@ defmodule Memo do
             upd_map = map |> Map.replace!(:rooms, upd_rooms)
         end
       :add ->
-        room.quest_pics |> Enum.find_index(fn(%{:quest_picID => id, :quest_pic => _}) -> id == quest_picID end)
+        room.quest_pics |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
         |> case do
           nil ->
             #Lägg till
@@ -289,14 +295,18 @@ defmodule Memo do
     end
   end
 
+  def room_data_handler do
+
+  end
+
   # Sparar till och laddar från fil
   def file_mux(file_path) do
     file_path |> Path.expand() |> File.stream!([], :line)
     receive do
-      {:save, {id, user_data}} ->
+      {:save, {user_id, user_data}} ->
         "tbd"
         # TODO save to file
-      {:load, id} ->
+      {:load, user_id} ->
         "tbd"
         # TODO load from file
       {:quit} -> :ok
@@ -305,5 +315,5 @@ defmodule Memo do
 
   # TODO
   # Skapar ny user
-  def create_user(id) do end
+  def create_user(user_id) do end
 end
