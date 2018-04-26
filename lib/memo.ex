@@ -2,9 +2,9 @@ defmodule Memo do
   require Logger
 
   # user_data = %{
-  # :userID => lolcat,
+  # :user_id => lolcat,
   # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
-  # :friends => [{:friend, %{:userID => id, :friends => []}}, etc...],
+  # :friends => [{:friend, %{:user_id => id, :friends => []}}, etc...],
   # :rooms => [%{:roomID => roomID, :room => room}, etc...],
   # :hasNew => false | true
   # }
@@ -13,7 +13,7 @@ defmodule Memo do
   # :name => "Super Duper Room",
   # :topic => "Underground Bayblade Cabal",
   # :icon => <<ByteArray>>
-  # :users => [{:user, userID}, etc...]
+  # :users => [{:user, user_id}, etc...]
   # :quests => [%{:questID => questID, :quest => <JsonString>}]
   # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
   # }
@@ -57,10 +57,10 @@ defmodule Memo do
     receive do
       {:get, pid, thing} ->
         case thing do
-          {:userID} -> send pid, user_data.userID
+          {:user_id} -> send pid, user_data.user_id
           {:notifs} -> send pid, user_data.notifs
-          {:friends, userID} ->
-            get_friend user_data, userID, pid
+          {:friends, user_id} ->
+            get_friend user_data, user_id, pid
           {:rooms, roomID} ->
             get_room user_data, roomID, pid
           {:quest, questID} ->
@@ -73,12 +73,12 @@ defmodule Memo do
         user_data_handler(user_data)
       {:set, pid, action, value} ->
         case action do
-          {:userID} -> user_data |> Map.put(:userID, value)
+          {:user_id} -> user_data |> Map.put(:user_id, value)
           {:notifs, what} ->
             set_notif user_data, what, value, pid
 
-          {:friends, userID, what} ->
-            set_friend user_data, what, userID, value, pid
+          {:friends, user_id, what} ->
+            set_friend user_data, what, user_id, value, pid
 
           {:rooms, roomID, roomPart, what} ->
             set_room user_data, what, roomID, roomPart, value, pid
@@ -101,8 +101,8 @@ defmodule Memo do
     end
   end
 
-  def get_friend(map, userID, pid) do
-    friend = (map.friends |> Enum.find(fn({:friend, %{:userID => x, :friends => _}}) -> x == userID end))
+  def get_friend(map, user_id, pid) do
+    friend = (map.friends |> Enum.find(fn({:friend, %{:user_id => x, :friends => _}}) -> x == user_id end))
     send pid, friend
   end
 
@@ -140,9 +140,9 @@ defmodule Memo do
     end
   end
 
-  def set_friend(map, method, userID, friend, pid) do
+  def set_friend(map, method, user_id, friend, pid) do
     map.friends
-    |> Enum.find_index(fn {:friend, %{:userID => ^userID, :friends => _}} -> true end)
+    |> Enum.find_index(fn {:friend, %{:user_id => ^user_id, :friends => _}} -> true end)
     |> case do
       nil when method == :add ->
         map
@@ -304,6 +304,25 @@ defmodule Memo do
   end
 
   # TODO
+
+  # user_data = %{
+  # :user_id => lolcat,
+  # :notifs => [%{:friendReq => %{:from => lolcat, :to => doggo}}, %{:roomInv => %{:room => [], :to => lolcat}}, etc...],
+  # :friends => [{:friend, %{:user_id => id, :friends => []}}, etc...],
+  # :rooms => [%{:roomID => roomID, :room => room}, etc...],
+  # :hasNew => false | true
+  # }
+  # room = %{
+  # :owner => "Kor-Nelzizandaaaaaa"
+  # :name => "Super Duper Room",
+  # :topic => "Underground Bayblade Cabal",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, user_id}, etc...]
+  # :quests => [%{:questID => questID, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_picID => quest_picID, :pic => <<ByteArray>>}]
+  # }
   # Skapar ny user
-  def create_user(id) do end
+  def create_user(id) do
+    %{:user_id => id, :notifs => [], :friends => [], :rooms => [], :hasNew => false}
+  end
 end
