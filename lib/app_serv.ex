@@ -73,7 +73,7 @@ defmodule Serv do
             Logger.info("ok2 sent")
 
             # send pic
-            pic_mess |> Enum.reverse() |> send_mess(socket)
+            pic_mess |> Enum.reverse() # |> send_mess(socket) TODO Byt ut mot spara till memo
             Logger.info("pic sent")
 
           _ ->
