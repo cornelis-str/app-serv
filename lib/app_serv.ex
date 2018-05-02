@@ -81,12 +81,23 @@ defmodule Serv do
   # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, data}}}
   # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, data}
   defp pos_req(str) do
-    [h , t] = String.split(str, " ")
-    [_ , user_id2] = String.split(t, ":")
+    [h | _] = String.split(str, " ")
     String.split(h, ":")
     |> case do
       ["ID", user_id] -> send :memo_mux, {:user, user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => []}}}
-      ["FROM", user_id] -> send :memo_mux, {:user, user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}       #The exact moment Cornelis mind borke
+      ["FROM", user_id] ->
+        str |> String.split(" ")
+        |> case do
+          [_, to] ->
+            [_, user_id2] = to |> String.split(":")
+            send :memo_mux, {:user, user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}       #The exact moment Cornelis mind borke
+            send :memo_mux, {:user, user_id2, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}
+          [_, to, group] ->
+            [_, user_id2] = to |> String.split(":")
+            [_, group_id] = group |> String.split(":")
+            send :memo_mux, {:user, user_id, {:set, self(), %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, {:notifs, :set}}}
+            send :memo_mux, {:user, user_id2, {:set, self(), %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, {:notifs, :set}}}
+        end
     end
   end
 
@@ -169,6 +180,7 @@ defmodule Serv do
     memberUserParser(rest, [{:user, user_id} | sofar])
   end
 
+  #TODO: del-requests som hanterar notifs.
   # Tar emot:
   # "ID:userID RID:resourceID"
   # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
@@ -189,29 +201,20 @@ defmodule Serv do
   end
 
 
-  # get req
-  defp get_req(x) do
-  end
-
-  # Get update:
+  # Get req
   # ID:userID
-
-  # user_data = %{
-  # :user_id => lolcat,
-  # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}}, etc...],
-  # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
-  # :rooms => [%{:room_id => room_id}, etc...],
-  # }
-
-  # room_data = %{
-  # :owner => "Kor-Nelzizandaaaaaa"
-  # :name => "Super Duper Room",
-  # :topic => "Underground Bayblade Cabal",
-  # :icon => <<ByteArray>>
-  # :users => [{:user, user_id}, etc...]
-  # :quests => [%{:quest_id => quest_id, :quest => <JsonString>}]
-  # :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
-  # }
+  # FROM:userID TO:userID | GROUP:groupID
+  defp get_req(str) do
+    str |> String.split(" ")
+    |> case do
+      [user] ->
+        get_upd(user)
+      [from, to] ->
+        "kod"
+      [from, to, group] ->
+        "kod"
+    end
+  end
 
   # Get update
   defp get_upd(str) do
@@ -220,7 +223,7 @@ defmodule Serv do
     receive do
       {:error, error} -> Logger.info(error)
       user_data ->
-        {rooms, pics} = user_data.rooms |> get_all_rooms([])
+        {rooms, pics} = user_data.rooms |> get_all_rooms([], [])
         user_data_rooms = user_data |> Map.replace!(:rooms, rooms)
         user_data_rooms_json = Jason.encode!(user_data_rooms)
         {user_data_rooms_json, pics}
@@ -236,7 +239,7 @@ defmodule Serv do
         pics = [%{:room_id => map.room_id, :pic => room_data.icon} | pics]
         pics = room_data.quest_pics ++ pics
         room_data = room_data |> Map.delete(:icon) |> Map.delete(:quest_pics)
-        get_all_rooms(rest, [room_data | rooms], pics)
+        get_all_rooms(rest, [%{:rooms => map.room_id, :room => room_data} | rooms], pics)
     end
   end
 
