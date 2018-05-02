@@ -83,7 +83,7 @@ defmodule Serv do
     [_ , user_id2] = String.split(t, ":")
     String.split(h, ":")
     |> case do
-      ["ID", user_id] -> send :memo_mux, {:user, {user_id, {:create_user, nil}}}
+      ["ID", user_id] -> send :memo_mux, {:user, {user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => []}}}}
       ["FROM", user_id] -> send :memo_mux, {:user, {user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
     end
   end
@@ -153,7 +153,7 @@ defmodule Serv do
         send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}}
         {:ok, desc} = decoded |> Map.fetch("description")
         send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}}
-        members = memberUserParser(decoded |> Map.fetch("members"), [])
+        members = member_parser(decoded |> Map.fetch("members"), [])
         send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}}
       # Quest
       [_, owner_id, room_id, mission_id] ->
@@ -161,9 +161,9 @@ defmodule Serv do
     end
   end
 
-  defp memberUserParser([], ret), do: ret
-  defp memberUserParser([map | rest], sofar) do
-    user_id = map |> Map.fetch("userName")
+  defp member_parser([], ret), do: ret
+  defp member_parser([map | rest], sofar) do
+    {:ok, user_id} = map |> Map.fetch("userName")
     memberUserParser(rest, [{:user, user_id} | sofar])
   end
 
@@ -186,15 +186,56 @@ defmodule Serv do
     end
   end
 
-  # TODO
-  # Ska ta hand om GET requests
-  # Svara på vänn/rum-förfrågan:
-  # ID:userID RID:resourceID
-  # get update:
-  # ID:userID
-  defp get_req(str) do
+
+  # get req
+  defp get_req(x) do
   end
 
+  # Get update:
+  # ID:userID
+
+  # user_data = %{
+  # :user_id => lolcat,
+  # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}}, etc...],
+  # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
+  # :rooms => [%{:room_id => room_id}, etc...],
+  # }
+
+  # room_data = %{
+  # :owner => "Kor-Nelzizandaaaaaa"
+  # :name => "Super Duper Room",
+  # :topic => "Underground Bayblade Cabal",
+  # :icon => <<ByteArray>>
+  # :users => [{:user, user_id}, etc...]
+  # :quests => [%{:quest_id => quest_id, :quest => <JsonString>}]
+  # :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
+  # }
+
+  # Get update
+  defp get_upd(str) do
+    [_, user_id] = str |> String.split(":")
+    send :memo_mux, {:user, {user_id, {:get, self(), {:user}}}}
+    receive do
+      {:error, error} -> Logger.info(error)
+      user_data ->
+        {rooms, pics} = user_data.rooms |> get_all_rooms([])
+        user_data_rooms = user_data |> Map.replace!(:rooms, rooms)
+        user_data_rooms_json = Jason.encode!(user_data_rooms)
+        {user_data_rooms_json, pics}
+    end
+  end
+
+  defp get_all_rooms([], rooms, pics), do: {rooms, pics}
+  defp get_all_rooms([map | rest], rooms, pics) do
+    send :memo_mux, {:room, {map.room_id, {:get, self(), {:room}}}}
+    receive do
+      {:error, error} -> Logger.info(error)
+      room_data ->
+        pics = [%{:room_id => map.room_id, :pic => room_data.icon} | room_data.quest_pics | pics]
+        room_data = room_data |> Map.delete(:icon) |> Map.delete(:quest_pics)
+        get_all_rooms(rest, [room_data | rooms], pics)
+    end
+  end
 
   # Läser bytes antal bytes från socker-sött
   defp read_bytes(socket, bytes) do

@@ -146,7 +146,7 @@ defmodule Memo do
   # "how" can be :del or :add. With icons and text this is ignored.
   def room_data_handler(room_data) do
     receive do
-      {:get, pid, :room} ->
+      {:get, pid, {:room}} ->
         send pid, room_data
         room_data_handler(room_data)
 
