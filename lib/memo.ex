@@ -57,7 +57,6 @@ defmodule Memo do
           pid ->
             send pid, action
             memo_mux user_pid_list, room_pid_list
-
         end
 
       {:room, {room_id, action = {method, thing, _}}} ->
@@ -78,7 +77,7 @@ defmodule Memo do
           # skicka :save och :quit till alla user_data_handler processer
           save_exit = fn([h|t], f) ->
             case h do
-              {user_id, pid} ->
+              {_, pid} ->
                 #send pid, {:save, user_id}
                 send pid, {:quit}
                 f.(t,f)
@@ -109,14 +108,14 @@ defmodule Memo do
         user_data_handler(user_data)
 
       {:get, pid,{:room_list}} ->
-        get_room_list user_data, pid           #TODO implementera get_rooms
+        get_room_list user_data, pid
         user_data_handler(user_data)
 
       {:get, pid,{:has_new}} ->
         send pid, user_data.has_new
         user_data_handler(user_data)
 
-      {:set, pid, value, {:user_id}} ->
+      {:set, value, {:user_id}} ->
         user_data
         |> Map.put(:user_id, value)
         |> user_data_handler()
@@ -129,11 +128,11 @@ defmodule Memo do
         set_friend user_data, how, user_id, value, pid
         |> user_data_handler()
 
-      {:set, pid, value, {:rooms, room_id, how}} ->
-        set_rooms user_data, how, pid           #TODO implementera set_rooms
+      {:set, pid, {:rooms, room_id, how}} ->
+        set_users_rooms user_data, how, room_id, pid
         |> user_data_handler()
 
-      {:set, pid, value, {:has_new}} ->
+      {:set, value, {:has_new}} ->
         user_data
         |> Map.replace!(:has_new, value)
         |> user_data_handler()
@@ -143,31 +142,34 @@ defmodule Memo do
     end
   end
 
+  # "how" can be :del or :add. With icons and text this is ignored.
   def room_data_handler(room_data) do
     receive do
       {:get, pid, {:room, room_part}} ->
         get_room room_data, room_part, pid
 
       {:get, pid, {:quest, quest_id}} ->
-        get_quest room_data, quest_id, pid          #TODO updatera för att använda room_map
+        get_quest room_data, quest_id, pid
 
       {:get, pid, {:quest_pic, resource_id}} ->
-        get_quest_pics room_data, resource_id, pid  #TODO updatera för att använda room_map
+        get_quest_pics room_data, resource_id, pid
 
       {:set, pid, {:room, which_room_part, part_to_add, how}} ->
         set_room room_data, how, which_room_part, part_to_add, pid
 
+      {:set, pid, {:room, room_id, :del}} ->
+        send pid, {:memo, "deleting room #{room_id}"}
+
       {:set, pid, {:quest, quest_id, quest, how}} ->
-        set_quest room_data, how, quest_id, quest pid #TODO updatera för att använda room_map
+        set_quest room_data, how, quest_id, quest, pid
 
       {:set, pid, {:quest_pic, resource_id, resource, how}} ->
-        set_quest_pics room_data, how, resource_id, resource, pid #TODO updatera för att använda room_map
+        set_quest_pics room_data, how, resource_id, resource, pid
 
-      {:set, pid, {:room, :del}} ->
-        "Code for deletion of room here" #TODO
     end
   end
 
+### USER_DATA_HANDLER GETTERS ###
   def get_friend(user_data, user_id, pid) do
     friend = (user_data.friends |> Enum.find(fn({:friend, %{:user_id => x, :friends => _}}) -> x == user_id end))
     send pid, friend
@@ -177,6 +179,67 @@ defmodule Memo do
     send pid, {:memo, user_data.rooms}
   end
 
+### USER_DATA_HANDLER SETTERS ###
+  def set_notif(user_data, how, notif, pid) do
+    user_data.notifs
+    |> Enum.member?(notif)
+    |> case do
+      true when how == :add -> user_data
+      true when how == :del ->
+        user_data
+        |> Map.replace!(:notifs, user_data.notifs |> List.delete(notif))
+      false when how == :add ->
+        new_user_data = user_data
+        |> Map.replace!(:notifs, [notif | user_data.notifs])
+        send pid, {:memo, :ok}
+        new_user_data
+      false when how == :del ->
+        Logger.info {:memo, "Can't delete 'nothing'"}
+    end
+  end
+
+  def set_friend(user_data, how, user_id, friend, pid) do
+    user_data.friends
+    |> Enum.find_index(fn {:friend, %{:user_id => ^user_id, :friends => _}} -> true end)
+    |> case do
+      nil when how == :add ->
+        user_data
+        |> Map.replace!(:friends, [friend | user_data.friends])
+
+      nil when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
+
+      index when how == :add ->
+        user_data
+        |> Map.replace!(:friends, [friend | user_data.friends |> List.delete_at(index)])
+
+      index when how == :del ->
+        user_data
+        |> Map.replace!(:friends, user_data.friends |> List.delete_at(index))
+    end
+  end
+
+  def set_users_rooms(user_data, how, room_id, pid) do
+    user_data
+    |> Enum.find_index(fn %{:roomID => ^room_id} -> true end)
+    |> case do
+      nil when how == :add ->
+        user_data
+        |> Map.replace!(:rooms, [%{:room_id => room_id} | user_data.rooms])
+
+      nil when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
+
+      index when how == :del ->
+        user_data
+        |> Map.replace!(:rooms, user_data |> List.delete_at(index))
+
+      _ when how == :add ->
+        user_data
+    end
+  end
+
+### ROOM_DATA_HANDLER GETTERS ###
   def get_room(room_data, room_part, pid) do
     case room_part do
       :owner -> send pid, room_data.owner
@@ -186,6 +249,7 @@ defmodule Memo do
       :users -> send pid, room_data.users
       :quests -> send pid, room_data.quests
       :quest_pics -> send pid, room_data.quest_pics
+      _ -> send pid, {:memo, "SYNTAX ERROR"}
     end
   end
 
@@ -199,174 +263,88 @@ defmodule Memo do
     |> Enum.find(fn(%{:quest_pic_id => ^quest_pic_id, :pic => _}) -> true end)
   end
 
-  def set_notif(user_data, method, notif, pid) do
-    case method do
-      :del -> user_data.notifs |> List.delete(notif)
-      :add ->
-        user_data.notifs
-        |> Enum.member?(notif)
-        |> case do
-          true -> send pid, {:memo, :ok}
-          false ->
-            new_user_data = user_data
-            |> Map.replace!(:notifs, [notif | user_data.notifs])
-            send pid, {:memo, :ok}
-            new_user_data
-          end
-    end
-  end
-
-  def set_friend(user_data, method, user_id, friend, pid) do
-    user_data.friends
-    |> Enum.find_index(fn {:friend, %{:user_id => ^user_id, :friends => _}} -> true end)
-    |> case do
-      nil when method == :add ->
-        user_data
-        |> Map.replace!(:friends, [friend | user_data.friends])
-
-      nil when method == :del ->
-        send pid, {:memo, "Can't delete nonexisting"}
-
-      index ->
-        case method do
-          :add ->
-            user_data
-            |> Map.replace!(:friends, user_data.friends)
-
-          :del ->
-            user_data
-            |> Map.replace!(:friends, [friend | user_data.friends |> List.delete_at(index)])
-        end
-    end
-  end
-
-  # TODO implementera
-  def set_rooms(user_data, how, pid) do end
-
-  #TODO använd room_data/room_map istället för user_data/user_data
+### ROOM_DATA_HANDLER SETTERS ###
   def set_room(room_data, how, room_part, part, pid) do
     case room_part do
-      nil when method == :del -> send pid, {:memo, "Can't delete nonexisting"}
+      :owner ->
+        room_data |> Map.replace!(:owner, part)
 
-      %{:room_id => _, :room => _} ->
-        case room_part do
-          :room when method == :add ->
-            user_data |> Map.replace!(:rooms, [part | user_data.rooms
-            |> Enum.find(fn(%{:room_id => ^room_id, :room => _}) -> true end)
-            |> List.delete()])
+      :name ->
+        room_data |> Map.replace!(:name, part)
 
-          :room when method == :del ->
-            user_data |> Map.replace!(:rooms,
-            user_data.rooms
-            |> Enum.find(fn (%{:room_id => ^room_id, :room => _}) -> true end)
-            |> List.delete() )
+      :topic ->
+        room_data |> Map.replace!(:topic, part)
 
-          :owner ->
-            user_data |> Map.replace!(:owner, part)
+      :icon ->
+        room_data |> Map.replace!(:icon, part)
 
-          :name ->
-            user_data |> Map.replace!(:name, part)
-
-          :topic ->
-            user_data |> Map.replace!(:topic, part)
-
-          :icon ->
-            user_data |> Map.replace!(:icon, part)
-
-          :users when method == :add ->
-            user_data.users
-            |> Enum.find_index(fn(^part) -> true end)
-            |> case do
+      :users when how == :add ->
+        room_data.users
+        |> Enum.find_index(fn(^part) -> true end)
+        |> case do
               nil ->
-                user_data |> Map.replace!(:users, [part | user_data.users])
+                room_data
+                |> Map.replace!(:users, [part | room_data.users])
               index ->
-                user_data |> Map.replace!(:users, [part |
-                user_data.users
+                room_data
+                |> Map.replace!(:users, [part | room_data.users
                 |> List.delete_at(index)])
             end
 
-          :users when method == :del ->
-            user_data |> Map.replace!(:users,
-            user_data.users
-            |> List.delete_at(user_data.users
-            |> Enum.find_index(fn(^part) -> true end)))
+      :users when how == :del ->
+        room_data
+        |> Map.replace!(:users, room_data.users
+        |> List.delete_at(room_data.users
+        |> Enum.find_index(fn(^part) -> true end)))
 
-          _ -> send pid, {:memo, "SYNTAX ERROR"}
-        end
+      _ -> send pid, {:memo, "SYNTAX ERROR"}
     end
   end
 
-  #TODO använd room_data/room_map istället för user_data/user_data
-  def set_quest(user_data, action, quest_id, quest, pid) do
-    [username, roomname, _] = String.split(quest_id, "@")
-    room = (user_data.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    case action do
-      :del ->
-        room.quests |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
-        |> case do
-          nil->
-            send pid, {:memo, "Cannot remove files that do not exist"}
-          index ->
-            upd_quests = room.quests |> List.delete_at(index)
-            upd_room = user_data.rooms |> Map.replace!(:quests, upd_quests)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-        end
-      :add ->
-        room.quests |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
-        |> case do
-          nil ->
-            #Lägg till
-            upd_quests = [quest | room.quests]
-            upd_room = user_data.rooms |> Map.replace!(:quests, upd_quests)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-          index ->
-            #Ersätt
-            upd_quests = [quest | room.quests |> List.delete_at(index)]
-            upd_room = user_data.rooms |> Map.replace!(:quests, upd_quests)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest, upd_room)
-            user_data |> Map.replace!(:rooms, upd_rooms)
-        end
+  def set_quest(room_data, how, quest_id, quest, pid) do
+    room_data.quests
+    |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
+    |> case do
+      nil when how == :add ->
+        #Lägg till
+        room_data |> Map.replace!(:quests, [quest | room_data.quests])
+
+      nil when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
+
+      index when how == :add ->
+        #Ersätt
+        room_data
+        |> Map.replace!(:quest, [quest | room_data.quests |> List.delete_at(index)])
+
+      _ when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
     end
   end
 
-  #TODO använd room_data/room_map istället för user_data/user_data
-  def set_quest_pics(user_data, action, quest_pic_id, pic, pid) do
-    [username, roomname, _, _, _] = String.split(quest_pic_id, "@")
-    room = (user_data.rooms |> Enum.find(fn(%{:room_id => x, :room => _}) -> x == "#{username}@#{roomname}" end))
-    case action do
-      :del ->
-        room.quest_pics |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
-        |> case do
-          nil->
-            send pid, {:memo, "Cannot remove files that do not exist"}
-          index ->
-            upd_quests_pic = room.quest_pics |> List.delete_at(index)
-            upd_room = user_data.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest_pic, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-        end
-      :add ->
-        room.quest_pics |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
-        |> case do
-          nil ->
-            #Lägg till
-            upd_quests_pic = [pic | room.quest_pics]
-            upd_room = user_data.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest_pic, upd_room)
-            upd_map = user_data |> Map.replace!(:rooms, upd_rooms)
-          index ->
-            #Ersätt
-            upd_quests_pic = [pic | room.quest_pics |> List.delete_at(index)]
-            upd_room = user_data.rooms |> Map.replace!(:quest_pics, upd_quests_pic)
-            upd_rooms = user_data.rooms |> Map.replace!(:quest_pic, upd_room)
-            user_data |> Map.replace!(:rooms, upd_rooms)
-        end
+  def set_quest_pics(room_data, how, quest_pic_id, pic, pid) do
+    room_data.quest_pics
+    |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
+    |> case do
+      nil when how == :add ->
+        room_data
+        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics])
+
+      nil when how == :del ->
+        send pid, {:memo, "SYNTAX ERROR"}
+
+      index when how == :add ->
+        room_data
+        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics |> List.delete_at(index)])
+
+      index when how == :del ->
+        room_data
+        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics |> List.delete_at(index)])
+
     end
   end
 
-
+### FILE SAVE AND LOAD ###
   # TODO gör klar
   # Sparar till och laddar från fil
   def file_mux(file_path) do

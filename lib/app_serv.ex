@@ -57,24 +57,7 @@ defmodule Serv do
         # PUT requests kan vara av olika typ vanlig och PIC
         case tail do
           ["PIC"|t] ->
-            IO.inspect t, limit: :infinity
-
-            # send ok
-            write_line("ok\r\n", socket)
-            Logger.info("ok sent")
-
-            # Get pic
-            pic_mess = pic_req([], List.first(t) |> String.to_integer(), socket)
-            Logger.info("got pic")
-            Logger.info(Enum.count(pic_mess))
-
-            # send ok
-            write_line("ok\r\n", socket)
-            Logger.info("ok2 sent")
-
-            # send pic
-            pic_mess |> Enum.reverse() # |> send_mess(socket) TODO Byt ut mot spara till memo
-            Logger.info("pic sent")
+            spawn fn -> put_pic_req(t, socket) end
 
           _ ->
             IO.inspect tail, limit: :infinity
@@ -104,18 +87,39 @@ defmodule Serv do
     end
   end
 
+  defp put_pic_req(tail, socket) do
+    IO.inspect tail, limit: :infinity
+
+    # send ok
+    write_line("ok\r\n", socket)
+    Logger.info("ok sent")
+
+    # Get pic
+    pic_mess = read_image([], tail |> List.first() |> String.to_integer(), socket)
+    Logger.info("got pic")
+    Logger.info(Enum.count(pic_mess))
+
+    # send ok
+    write_line("ok\r\n", socket)
+    Logger.info("ok2 sent")
+
+    # send pic
+    pic_mess |> Enum.reverse() # |> send_mess(socket) TODO Byt ut mot spara till memo
+    Logger.info("pic sent")
+  end
+
   # Läser in len stor bild i 1024 bytes bitar
-  defp pic_req(mem, 0, _), do: mem
-  defp pic_req(mem, len, socket) do
+  defp read_image(mem, 0, _), do: mem
+  defp read_image(mem, len, socket) do
     cond do
       len > 1024 ->
         [read_bytes(socket, 1024) | mem]
-        |> pic_req(len - 1024, socket)
+        |> read_image(len - 1024, socket)
       # Nedan går endast igång om inget ovan gått igång
       true ->
         Logger.info(len)
         [read_bytes(socket, len) | mem]
-        |> pic_req(0, socket)
+        |> read_image(0, socket)
     end
   end
 
@@ -180,7 +184,7 @@ defmodule Serv do
     |> case do
       [_, user_id, room_id] ->
         "stuff"
-        
+
       [_, user_id, room_id, mission_id] ->
         "other stuff"
     end
