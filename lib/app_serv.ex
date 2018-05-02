@@ -231,7 +231,8 @@ defmodule Serv do
     receive do
       {:error, error} -> Logger.info(error)
       room_data ->
-        pics = [%{:room_id => map.room_id, :pic => room_data.icon} | [room_data.quest_pics | pics]]
+        pics = [%{:room_id => map.room_id, :pic => room_data.icon} | pics]
+        pics = room_data.quest_pics ++ pics
         room_data = room_data |> Map.delete(:icon) |> Map.delete(:quest_pics)
         get_all_rooms(rest, [room_data | rooms], pics)
     end
