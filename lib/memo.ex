@@ -16,12 +16,11 @@ defmodule Memo do
   # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}}, etc...],
   # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
   # :rooms => [%{:room_id => room_id, :room => room_data}, etc...],
-  # :hasNew => false | true
   # }
 
   # Memos interna struktur
   # room_data = %{
-  # :owner => "Kor-Nelzizandaaaaaa"
+  # :owner => "Kor-Nelzizandaaaaaa",
   # :name => "Super Duper Room",
   # :topic => "Underground Bayblade Cabal",
   # :icon => <<ByteArray>>
@@ -33,10 +32,11 @@ defmodule Memo do
   # Hämtar och ändrar user data på begäran.
   def start() do
     # Ta bort kommentering i lib/application.ex för att det ska fungera
-
-    {:ok, pid} = Task.Supervisor.start_child(Memo.TaskSupervisor, fn -> memo_mux([], []) end)
+    Logger.info("memo started")
+    {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> memo_mux([], []) end)
     Process.register(pid, :memo_mux)
     #spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
+    Logger.info("memo memoed")
   end
 
   def memo_mux(user_pid_list, room_pid_list) do
@@ -208,7 +208,7 @@ defmodule Memo do
         |> Map.replace!(:friends, [friend | user_data.friends])
 
       nil when how == :del ->
-        send pid, {:memo, "SYNTAX ERROR"}
+        Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
 
       index when how == :add ->
         user_data
@@ -229,7 +229,7 @@ defmodule Memo do
         |> Map.replace!(:rooms, [%{:room_id => room_id} | user_data.rooms])
 
       nil when how == :del ->
-        send pid, {:memo, "SYNTAX ERROR"}
+        Logger.info "pid, {:memo, \"SYNTAX ERROR\"}"
 
       index when how == :del ->
         user_data
@@ -311,7 +311,7 @@ defmodule Memo do
         room_data |> Map.replace!(:quests, [quest | room_data.quests])
 
       nil when how == :del ->
-        send pid, {:memo, "SYNTAX ERROR"}
+        Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
 
       index when how == :add ->
         #Ersätt
@@ -319,7 +319,7 @@ defmodule Memo do
         |> Map.replace!(:quest, [quest | room_data.quests |> List.delete_at(index)])
 
       _ when how == :del ->
-        send pid, {:memo, "SYNTAX ERROR"}
+        Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
     end
   end
 
@@ -332,7 +332,7 @@ defmodule Memo do
         |> Map.replace!(:quest_pics, [pic | room_data.quest_pics])
 
       nil when how == :del ->
-        send pid, {:memo, "SYNTAX ERROR"}
+        Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
 
       index when how == :add ->
         room_data
