@@ -10,8 +10,10 @@ defmodule Serv do
     {:ok, socket} =
       :gen_tcp.listen(port, [:binary, packet: :raw, active: false, reuseaddr: true])
 
+    # Starting Data handler
+    {:ok, _} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> Memo.start() end)
+
     Logger.info("Accepting connections on port #{port}")
-    Memo.start()
     loop_acceptor(socket)
   end
 
