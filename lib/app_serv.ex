@@ -1,4 +1,3 @@
-
 defmodule Serv do
   require Logger
 
@@ -64,7 +63,7 @@ defmodule Serv do
 
           _ ->
             IO.inspect tail, limit: :infinity
-            spawn fn -> Enum.join(tail, " ") |> put_req(socket) end
+            spawn fn -> Enum.join(tail, " ") |> put_req() end
         end
 
       # Skickar vidare info och startar process om DEL request
@@ -90,6 +89,7 @@ defmodule Serv do
     end
   end
 
+  #TODO gör om gör rätt
   defp put_pic_req(tail, socket) do
     IO.inspect tail, limit: :infinity
 
@@ -126,13 +126,6 @@ defmodule Serv do
     end
   end
 
-  # Echoserver:
-  defp put_req(json, socket) do
-    #IO.inspect json
-    write_line("#{json}\r\n\r\n", socket)
-    Logger.info("Sent mess")
-  end
-
 # Tar hand om put requests som ser ut som följande:
 # ID:user_id RID:thing@userName@roomName | @missionName <JSON>
 # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
@@ -166,7 +159,7 @@ defmodule Serv do
   defp member_parser([], ret), do: ret
   defp member_parser([map | rest], sofar) do
     {:ok, user_id} = map |> Map.fetch("userName")
-    memberUserParser(rest, [{:user, user_id} | sofar])
+    member_parser(rest, [{:user, user_id} | sofar])
   end
 
   # Tar emot:
@@ -189,7 +182,7 @@ defmodule Serv do
   end
 
 
-  # get req
+  # TODO get req
   defp get_req(x) do
   end
 
