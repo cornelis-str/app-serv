@@ -11,12 +11,13 @@ defmodule Serv do
       :gen_tcp.listen(port, [:binary, packet: :raw, active: false, reuseaddr: true])
 
     Logger.info("Accepting connections on port #{port}")
+    Memo.start()
     loop_acceptor(socket)
   end
 
   # Lyssnar efter anrop till port och startar process för behandling av input
   defp loop_acceptor(socket) do
-    # Vänntar på anslutning
+    # Väntar på anslutning
     {:ok, client} = :gen_tcp.accept(socket)
 
     # Startar process för att behandla anslutning
@@ -43,7 +44,7 @@ defmodule Serv do
   end
 
   @doc """
-  Tar in förfrågan och skickarvidare info baserad på denna
+  Tar in förfrågan och skickar vidare info baserad på denna
   """
   def parse(mess, socket) do
     # Gör lista av sträng
@@ -130,7 +131,6 @@ defmodule Serv do
     Logger.info("Sent mess")
   end
 
-# TODO
 # Tar hand om put requests som ser ut som följande:
 # ID:user_id RID:thing@userName@roomName | @missionName <JSON>
 # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
@@ -146,19 +146,18 @@ defmodule Serv do
     String.split(res_id, "@")
     |> case do
       # Room
-      [_, user_id, room_id] ->
-        #TODO: send :memo_mux * antal rum-attributer, uppdatera alla olika room_parts
+      [_, owner_id, room_id] ->
         {:ok, owner} = decoded |> Map.fetch("owner")
-        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}}
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}}
         {:ok, room_name} = decoded |> Map.fetch("roomName")
-        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}}
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}}
         {:ok, desc} = decoded |> Map.fetch("description")
-        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}}
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}}
         members = memberUserParser(decoded |> Map.fetch("members"), [])
-        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}}
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}}
       # Quest
-      [_, user_id, room_id, mission_id] ->
-        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:quest, "#{user_id}@#{room_id}@#{mission_id}", json}}}}
+      [_, owner_id, room_id, mission_id] ->
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", json}}}}
     end
   end
 
@@ -168,27 +167,23 @@ defmodule Serv do
     memberUserParser(rest, [{:user, user_id} | sofar])
   end
 
-  # TODO
-  # Ska ta hand om DEL requests
   # Tar emot:
   # "ID:userID RID:resourceID"
   # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
-  # Om du tar bort ett quest skickas detta vidare till roomhandler, som tar emot: {:room, {room_id, action}}
-  # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
-  # how = :add eller :del
+  # Om du tar bort ett room skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:room, room_id, :del}}
+  # Om du tar bort en mission skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:quest, quest_id, quest, how}}
+  # TODO: del friendrequests
   defp del_req(str) do
-    [user_id, resource_id] = str |> String.split(" ")
-    [_, user_id] = user_id |> String.split("ID:")
+    [_, resource_id] = str |> String.split(" ")
+    #[_, user_id] = user_id |> String.split("ID:")
     [_, resource_id] = resource_id |> String.split("RID:")
     resource_id |> String.split("@")
     |> case do
-      [_, user_id, room_id] ->
-        "stuff"
-
-      [_, user_id, room_id, mission_id] ->
-        "other stuff"
+      [_, owner_id, room_id] ->
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, "#{}@#{room_id}", :del}}}}
+      [_, owner_id, room_id, mission_id] ->
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", nil, :del}}}}
     end
-
   end
 
   # TODO
@@ -197,7 +192,8 @@ defmodule Serv do
   # ID:userID RID:resourceID
   # get update:
   # ID:userID
-  defp get_req(_) do end
+  defp get_req(str) do
+  end
 
 
   # Läser bytes antal bytes från socker-sött
