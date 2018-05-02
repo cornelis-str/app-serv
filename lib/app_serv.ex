@@ -100,12 +100,7 @@ defmodule Serv do
     String.split(h, ":")
     |> case do
       ["ID", user_id] -> send :memo_mux, {:user, {user_id, {:create_user, nil}}}
-      ["FROM", user_id] -> send :memo_mux, {:user, {user_id, {:set, self(),
-      %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
-    end
-    receive do
-      {:memo, :ok} -> Logger.info("notif set")
-      {:error, error} -> Logger.info(error)
+      ["FROM", user_id] -> send :memo_mux, {:user, {user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
     end
   end
 
@@ -139,37 +134,65 @@ defmodule Serv do
 # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
 # how = :add eller :del
   defp put_req(str) do
-    [id, rid, json] = str |> String.split(" ")
+    [id, rid | _] = str |> String.split(" ")
+    {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
     [_, user_id] = id |> String.split(":")
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
     |> case do
       # Room
-      [_, _, room_id] ->
-        "Ingen gillar compilation errors"
+      [_, user_id, room_id] ->
         #TODO: send :memo_mux * antal rum-attributer, uppdatera alla olika room_parts
-        send :memo_mux, {:room, {room_id, {:set, self(), {:room, :owner, decoded |> Map.fetch("owner"), :add}}}}
-        send :memo_mux, {:room, {room_id, {:set, self(), {:room, :name, decoded |> Map.fetch("roomName"), :add}}}}
-        send :memo_mux, {:room, {room_id, {:set, self(), {:room, :topic, decoded |> Map.fetch("description"), :add}}}}
-
-        # send :memo_mux, {:room, {room_id, {:set, self(), {:room, :members, decoded |> Map.fetch("members"), :add}}}}
-        # Not going to work Marcus konvertering: "members" => [%{"im" => 312312414, "userName" => "Amanda N"}, etc... ]
-        # Vår users: [{:user, user_id}, etc...]
-        # fetch returnerar {:ok, saken} >_>
-
+        {:ok, owner} = decoded |> Map.fetch("owner")
+        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}}
+        {:ok, room_name} = decoded |> Map.fetch("roomName")
+        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}}
+        {:ok, desc} = decoded |> Map.fetch("description")
+        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}}
+        members = memberUserParser(decoded |> Map.fetch("members"), [])
+        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}}
       # Quest
-      [_, _, room_id, quest_id] ->
-        send :memo_mux, {:room, {room_id, {:set, self(), {:quest, quest_id, json}}}}
+      [_, user_id, room_id, mission_id] ->
+        send :memo_mux, {:room, {"#{user_id}@#{room_id}", {:set, self(), {:quest, "#{user_id}@#{room_id}@#{mission_id}", json}}}}
     end
+  end
+
+  defp memberUserParser([], ret), do: ret
+  defp memberUserParser([map | rest], sofar) do
+    user_id = map |> Map.fetch("userName")
+    memberUserParser(rest, [{:user, user_id} | sofar])
   end
 
   # TODO
   # Ska ta hand om DEL requests
-  defp del_req(_) do end
+  # Tar emot:
+  # "ID:userID RID:resourceID"
+  # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
+  # Om du tar bort ett quest skickas detta vidare till roomhandler, som tar emot: {:room, {room_id, action}}
+  # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
+  # how = :add eller :del
+  defp del_req(str) do
+    [user_id, resource_id] = str |> String.split(" ")
+    [_, user_id] = user_id |> String.split("ID:")
+    [_, resource_id] = resource_id |> String.split("RID:")
+    resource_id |> String.split("@")
+    |> case do
+      [_, user_id, room_id] ->
+        "stuff"
+        
+      [_, user_id, room_id, mission_id] ->
+        "other stuff"
+    end
+
+  end
 
   # TODO
   # Ska ta hand om GET requests
+  # Svara på vänn/rum-förfrågan:
+  # ID:userID RID:resourceID
+  # get update:
+  # ID:userID
   defp get_req(_) do end
 
 

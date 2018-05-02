@@ -16,7 +16,6 @@ defmodule Memo do
   # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}}, etc...],
   # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
   # :rooms => [%{:room_id => room_id, :room => room_data}, etc...],
-  # :hasNew => false | true
   # }
 
   # Memos interna struktur
@@ -105,7 +104,7 @@ defmodule Memo do
         send pid, user_data.notifs
         user_data_handler(user_data)
 
-      {:get, pid, {:firends, user_id}} ->
+      {:get, pid, {:friends, user_id}} ->
         get_friend user_data, user_id, pid
         user_data_handler(user_data)
 
