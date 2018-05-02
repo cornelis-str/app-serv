@@ -83,8 +83,8 @@ defmodule Serv do
     [_ , user_id2] = String.split(t, ":")
     String.split(h, ":")
     |> case do
-      ["ID", user_id] -> send :memo_mux, {:user, {user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => []}}}}
-      ["FROM", user_id] -> send :memo_mux, {:user, {user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
+      ["ID", user_id] -> send :memo_mux, {:user, user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => []}}}
+      ["FROM", user_id] -> send :memo_mux, {:user, user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}       #The exact moment Cornelis mind borke
     end
   end
 
@@ -148,16 +148,16 @@ defmodule Serv do
       # Room
       [_, owner_id, room_id] ->
         {:ok, owner} = decoded |> Map.fetch("owner")
-        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}
         {:ok, room_name} = decoded |> Map.fetch("roomName")
-        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}
         {:ok, desc} = decoded |> Map.fetch("description")
-        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}
         members = member_parser(decoded |> Map.fetch("members"), [])
-        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}
       # Quest
       [_, owner_id, room_id, mission_id] ->
-        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", json}}}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", json}}}
     end
   end
 
@@ -180,9 +180,9 @@ defmodule Serv do
     resource_id |> String.split("@")
     |> case do
       [_, owner_id, room_id] ->
-        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, "#{}@#{room_id}", :del}}}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, "#{}@#{room_id}", :del}}}
       [_, owner_id, room_id, mission_id] ->
-        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", nil, :del}}}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", nil, :del}}}
     end
   end
 
