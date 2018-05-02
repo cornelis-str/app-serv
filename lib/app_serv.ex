@@ -214,7 +214,7 @@ defmodule Serv do
   # Get update
   defp get_upd(str) do
     [_, user_id] = str |> String.split(":")
-    send :memo_mux, {:user, {user_id, {:get, self(), {:user}}}}
+    send :memo_mux, {:user, user_id, {:get, self(), {:user}}}
     receive do
       {:error, error} -> Logger.info(error)
       user_data ->
@@ -227,11 +227,11 @@ defmodule Serv do
 
   defp get_all_rooms([], rooms, pics), do: {rooms, pics}
   defp get_all_rooms([map | rest], rooms, pics) do
-    send :memo_mux, {:room, {map.room_id, {:get, self(), {:room}}}}
+    send :memo_mux, {:room, map.room_id, {:get, self(), {:room}}}
     receive do
       {:error, error} -> Logger.info(error)
       room_data ->
-        pics = [%{:room_id => map.room_id, :pic => room_data.icon} | room_data.quest_pics | pics]
+        pics = [%{:room_id => map.room_id, :pic => room_data.icon} | [room_data.quest_pics | pics]]
         room_data = room_data |> Map.delete(:icon) |> Map.delete(:quest_pics)
         get_all_rooms(rest, [room_data | rooms], pics)
     end
