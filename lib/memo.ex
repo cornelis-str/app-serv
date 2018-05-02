@@ -258,7 +258,7 @@ defmodule Memo do
         |> Map.replace!(:rooms, [%{:room_id => room_id} | user_data.rooms])
 
       nil when how == :del ->
-        Logger.info "pid, {:memo, \"SYNTAX ERROR\"}"
+        Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
 
       index when how == :del ->
         user_data
