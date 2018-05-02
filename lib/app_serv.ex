@@ -14,12 +14,13 @@ defmodule Serv do
     {:ok, _} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> Memo.start() end)
 
     Logger.info("Accepting connections on port #{port}")
+    Memo.start()
     loop_acceptor(socket)
   end
 
   # Lyssnar efter anrop till port och startar process för behandling av input
   defp loop_acceptor(socket) do
-    # Vänntar på anslutning
+    # Väntar på anslutning
     {:ok, client} = :gen_tcp.accept(socket)
 
     # Startar process för att behandla anslutning
@@ -46,7 +47,7 @@ defmodule Serv do
   end
 
   @doc """
-  Tar in förfrågan och skickarvidare info baserad på denna
+  Tar in förfrågan och skickar vidare info baserad på denna
   """
   def parse(mess, socket) do
     # Gör lista av sträng
@@ -86,12 +87,7 @@ defmodule Serv do
     String.split(h, ":")
     |> case do
       ["ID", user_id] -> send :memo_mux, {:user, {user_id, {:create_user, nil}}}
-      ["FROM", user_id] -> send :memo_mux, {:user, {user_id, {:set, self(),
-      %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
-    end
-    receive do
-      {:memo, :ok} -> Logger.info("notif set")
-      {:error, error} -> Logger.info(error)
+      ["FROM", user_id] -> send :memo_mux, {:user, {user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}}       #The exact moment Cornelis mind borke
     end
   end
 
@@ -138,7 +134,6 @@ defmodule Serv do
     Logger.info("Sent mess")
   end
 
-# TODO
 # Tar hand om put requests som ser ut som följande:
 # ID:user_id RID:thing@userName@roomName | @missionName <JSON>
 # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
@@ -146,38 +141,62 @@ defmodule Serv do
 # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
 # how = :add eller :del
   defp put_req(str) do
-    [id, rid, json] = str |> String.split(" ")
+    [id, rid | _] = str |> String.split(" ")
+    {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
     [_, user_id] = id |> String.split(":")
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
     |> case do
       # Room
-      [_, _, room_id] ->
-        #"Ingen gillar compilation errors"
-        #TODO: send :memo_mux * antal rum-attributer, uppdatera alla olika room_parts
-        send :memo_mux, {:room, {room_id, {:set, self(), {:room, :owner, decoded |> Map.fetch("owner"), :add}}}}
-        send :memo_mux, {:room, {room_id, {:set, self(), {:room, :name, decoded |> Map.fetch("roomName"), :add}}}}
-        send :memo_mux, {:room, {room_id, {:set, self(), {:room, :topic, decoded |> Map.fetch("description"), :add}}}}
-
-        # send :memo_mux, {:room, {room_id, {:set, self(), {:room, :members, decoded |> Map.fetch("members"), :add}}}}
-        # Not going to work Marcus konvertering: "members" => [%{"im" => 312312414, "userName" => "Amanda N"}, etc... ]
-        # Vår users: [{:user, user_id}, etc...]
-        # fetch returnerar {:ok, saken} >_>
-
+      [_, owner_id, room_id] ->
+        {:ok, owner} = decoded |> Map.fetch("owner")
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}}
+        {:ok, room_name} = decoded |> Map.fetch("roomName")
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}}
+        {:ok, desc} = decoded |> Map.fetch("description")
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}}
+        members = memberUserParser(decoded |> Map.fetch("members"), [])
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}}
       # Quest
-      [_, _, room_id, quest_id] ->
-        send :memo_mux, {:room, {room_id, {:set, self(), {:quest, quest_id, json}}}}
+      [_, owner_id, room_id, mission_id] ->
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", json}}}}
+    end
+  end
+
+  defp memberUserParser([], ret), do: ret
+  defp memberUserParser([map | rest], sofar) do
+    user_id = map |> Map.fetch("userName")
+    memberUserParser(rest, [{:user, user_id} | sofar])
+  end
+
+  # Tar emot:
+  # "ID:userID RID:resourceID"
+  # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
+  # Om du tar bort ett room skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:room, room_id, :del}}
+  # Om du tar bort en mission skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:quest, quest_id, quest, how}}
+  # TODO: del friendrequests
+  defp del_req(str) do
+    [_, resource_id] = str |> String.split(" ")
+    #[_, user_id] = user_id |> String.split("ID:")
+    [_, resource_id] = resource_id |> String.split("RID:")
+    resource_id |> String.split("@")
+    |> case do
+      [_, owner_id, room_id] ->
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:room, "#{}@#{room_id}", :del}}}}
+      [_, owner_id, room_id, mission_id] ->
+        send :memo_mux, {:room, {"#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", nil, :del}}}}
     end
   end
 
   # TODO
-  # Ska ta hand om DEL requests
-  defp del_req(_) do end
-
-  # TODO
   # Ska ta hand om GET requests
-  defp get_req(_) do end
+  # Svara på vänn/rum-förfrågan:
+  # ID:userID RID:resourceID
+  # get update:
+  # ID:userID
+  defp get_req(str) do
+  end
 
 
   # Läser bytes antal bytes från socker-sött

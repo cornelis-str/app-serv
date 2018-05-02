@@ -35,6 +35,7 @@ defmodule Memo do
     Logger.info("memo started")
     {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> memo_mux([], []) end)
     Process.register(pid, :memo_mux)
+    IO.puts("Started memo, pid: #{pid}")
     #spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
     Logger.info("memo memoed")
   end
@@ -104,7 +105,7 @@ defmodule Memo do
         send pid, user_data.notifs
         user_data_handler(user_data)
 
-      {:get, pid, {:firends, user_id}} ->
+      {:get, pid, {:friends, user_id}} ->
         get_friend user_data, user_id, pid
         user_data_handler(user_data)
 
@@ -146,27 +147,36 @@ defmodule Memo do
   # "how" can be :del or :add. With icons and text this is ignored.
   def room_data_handler(room_data) do
     receive do
+      {:get, pid, :room} ->
+        send pid, room_data
+        room_data_handler(room_data)
+
       {:get, pid, {:room, room_part}} ->
         get_room room_data, room_part, pid
+        room_data_handler(room_data)
 
       {:get, pid, {:quest, quest_id}} ->
         get_quest room_data, quest_id, pid
+        room_data_handler(room_data)
 
       {:get, pid, {:quest_pic, resource_id}} ->
         get_quest_pics room_data, resource_id, pid
+        room_data_handler(room_data)
 
       {:set, pid, {:room, which_room_part, part_to_add, how}} ->
         set_room room_data, how, which_room_part, part_to_add, pid
+        |> room_data_handler()
 
       {:set, pid, {:room, room_id, :del}} ->
         send pid, {:memo, "deleting room #{room_id}"}
 
       {:set, pid, {:quest, quest_id, quest, how}} ->
         set_quest room_data, how, quest_id, quest, pid
+        |> room_data_handler()
 
       {:set, pid, {:quest_pic, resource_id, resource, how}} ->
         set_quest_pics room_data, how, resource_id, resource, pid
-
+        |> room_data_handler()
     end
   end
 
