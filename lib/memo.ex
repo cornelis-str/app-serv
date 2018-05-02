@@ -32,33 +32,45 @@ defmodule Memo do
   # Hämtar och ändrar user data på begäran.
   def start() do
     # Ta bort kommentering i lib/application.ex för att det ska fungera
-    Logger.info("memo started")
-    {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> memo_mux([], []) end)
+
+    {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> memo_mux(%{}, %{}) end)
     Process.register(pid, :memo_mux)
-    IO.puts("Started memo, pid: #{pid}")
+
     #spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
-    Logger.info("memo memoed")
   end
 
   def memo_mux(user_pid_list, room_pid_list) do
     receive do
-      {:user, {user_id, action = {method, thing, _}}} ->
+      {:user, user_id, action = {method, thing}} ->
+        case method do
+          :create_user ->
+            #IO.inspect thing, limit: :infinity
+            new_user_pid_list = user_pid_list
+            |> Map.put(user_id, spawn fn -> user_data_handler(thing) end)
+            #IO.inspect new_user_pid_list, limit: :infinity
+            memo_mux new_user_pid_list, room_pid_list
+
+          :add ->
+            new_user_pid_list = user_pid_list
+            |> Map.put(user_id, spawn fn -> load_user(user_id) |> user_data_handler() end)
+            send user_pid_list[user_id], action
+            memo_mux new_user_pid_list, room_pid_list
+
+          _ -> Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻"
+        end
+      {:user, user_id, action = {method, _, _}} ->
 
         case user_pid_list[user_id] do
 
-          nil when method == :create_user ->
-            new_user_pid = user_pid_list |> Map.put(user_id, spawn fn -> user_data_handler(thing) end)
-            send user_pid_list[user_id], action
-            memo_mux new_user_pid, room_pid_list
-
-          nil when method == :add ->
-            new_user_pid = user_pid_list |> Map.put(user_id, spawn fn -> load_user(user_id) |> user_data_handler() end)
-            send user_pid_list[user_id], action
-            memo_mux new_user_pid, room_pid_list
+          nil ->
+            IO.inspect method
+            Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻"
 
           pid ->
+            #IO.inspect method
             send pid, action
             memo_mux user_pid_list, room_pid_list
+
         end
 
       {:room, {room_id, action = {method, thing, _}}} ->
@@ -66,8 +78,8 @@ defmodule Memo do
         case room_pid_list[room_id] do
 
           nil when method == :add ->
-            new_room_pid_list = room_pid_list |> Map.put(room_id, room_pid = spawn(fn -> room_data_handler(thing) end))
-            send room_pid, action
+            new_room_pid_list = room_pid_list |> Map.put(room_id, spawn(fn -> room_data_handler(thing) end))
+            send room_pid_list[room_id], action
             memo_mux user_pid_list, new_room_pid_list
 
           room_pid ->
@@ -92,11 +104,18 @@ defmodule Memo do
           # TODO gå inte vidare för än alla barnprocesser är döda
           #send :ld, {:quit}
           #send :file_mux, {:quit}
+      catch_all ->
+        IO.inspect catch_all, limit: :infinity
+        memo_mux(user_pid_list, room_pid_list)
     end
   end
 
   def user_data_handler(user_data) do
     receive do
+      {:get, pid, {:user}} ->
+        send pid, user_data
+        user_data_handler(user_data)
+
       {:get, pid, {:user_id}} ->
         send pid, user_data.user_id
         user_data_handler(user_data)

@@ -14,7 +14,6 @@ defmodule Serv do
     {:ok, _} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> Memo.start() end)
 
     Logger.info("Accepting connections on port #{port}")
-    Memo.start()
     loop_acceptor(socket)
   end
 
