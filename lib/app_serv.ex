@@ -77,8 +77,8 @@ defmodule Serv do
   # Ta hand om POS requests:
   # ID:userID RID:
   # FROM:userID TO:userID +- ROOM:roomID +- QUEST:questID <string> eller en bild som skickas senare
-  # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, data}}}
-  # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, data}
+  # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, data, :add/:del}}}}
+  # skickar vidare till user_data_handler: {:set, self, {:notifs, data, :add/:del}}
   defp pos_req(str) do
     [h | _] = String.split(str, " ")
     String.split(h, ":")
@@ -130,8 +130,6 @@ defmodule Serv do
         Logger.info(error)
     end
   end
-
-
 
   #TODO gör om gör rätt
   defp put_pic_req(tail, socket) do
@@ -239,7 +237,7 @@ defmodule Serv do
 
   # "FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID +- string"
   # Skickar till memo_mux: {:user, user_id, action}
-  # action skickas till set notifs: {:set, pid, value, {:notifs, how}}
+  # action skickas till set notifs: {:set, pid, {:notifs, value, how}}
   defp del_notifs(str) do
     str |> String.split(" ")
     |> case do
@@ -320,8 +318,8 @@ defmodule Serv do
     end
   end
 
-  defp get_all_rooms([], rooms, pics), do: {rooms, pics}
-  defp get_all_rooms([map | rest], rooms, pics) do
+  def get_all_rooms([], rooms, pics), do: {rooms, pics}
+  def get_all_rooms([map | rest], rooms, pics) do
     send :memo_mux, {:room, map.room_id, {:get, self(), {:room}}}
     receive do
       {:error, error} -> Logger.info(error)
@@ -329,7 +327,7 @@ defmodule Serv do
         pics = [%{:room_id => map.room_id, :pic => room_data.icon} | pics]
         pics = room_data.quest_pics ++ pics
         room_data = room_data |> Map.delete(:icon) |> Map.delete(:quest_pics)
-        get_all_rooms(rest, [%{:rooms => map.room_id, :room => room_data} | rooms], pics)
+        get_all_rooms(rest, [%{:room_id => map.room_id, :room => room_data} | rooms], pics)
     end
   end
 

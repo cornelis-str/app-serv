@@ -73,16 +73,16 @@ defmodule Memo do
             #IO.inspect method
             send pid, action
             memo_mux user_pid_list, room_pid_list
-
         end
 
-      {:room, {room_id, action = {method, thing}}} when method == :add ->
+      {:room, room_id, {method, thing}} when method == :add ->
+        #Logger.info ":room :add"
         # Ingen felhantering, går troligen att spawna oändligt med processer
         new_room_pid_list = room_pid_list |> Map.put(room_id, spawn(fn -> room_data_handler(thing) end))
-        send room_pid_list[room_id], action
+        #send room_pid_list[room_id], action
         memo_mux user_pid_list, new_room_pid_list
 
-      {:room, {room_id, action = {method, _, _}}} ->
+      {:room, room_id, action = {method, _, _}} ->
 
         case room_pid_list[room_id] do
 
@@ -130,14 +130,18 @@ defmodule Memo do
         user_data_handler(user_data)
 
       {:get, pid, {:notifs}} ->
+        #Logger.info ":get notifs"
         send pid, user_data.notifs
+        #IO.inspect user_data.notifs, limit: :infinity
         user_data_handler(user_data)
 
       {:get, pid, {:friends, user_id}} ->
+        #Logger.info ":get friends"
         get_friend user_data, user_id, pid
         user_data_handler(user_data)
 
       {:get, pid,{:room_list}} ->
+        #Logger.info ":get rooms"
         get_room_list user_data, pid
         user_data_handler(user_data)
 
@@ -146,27 +150,29 @@ defmodule Memo do
         user_data_handler(user_data)
 
       ### Setters ###
-      # ändrad
       {:set, pid, {:user_id, value}} ->
         user_data
         |> Map.put(:user_id, value)
         |> user_data_handler()
 
-      # ändrad
       {:set, pid, {:notifs, value, how}} ->
-        set_notif user_data, how, value, pid
-        |> user_data_handler()
+        #Logger.info ":set notifs"
+        t = set_notif user_data, how, value, pid
+        #IO.inspect t, limit: :infinity
+        user_data_handler(t)
 
-      # ändrad
       {:set, pid, {:friends, user_id, value, how}} ->
-        set_friend user_data, how, user_id, value, pid
-        |> user_data_handler()
+        #Logger.info ":set friends"
+        new_user_data = set_friend user_data, how, user_id, value, pid
+        #IO.inspect new_user_data, limit: :infinity
+        user_data_handler(new_user_data)
 
       {:set, pid, {:rooms, room_id, how}} ->
-        set_users_rooms user_data, how, room_id, pid
-        |> user_data_handler()
+        #Logger.info ":set rooms"
+        new = set_users_rooms user_data, how, room_id, pid
+        #IO.inspect new, limit: :infinity
+        user_data_handler(new)
 
-      # ändrad
       {:set, pid, {:has_new, value}} ->
         user_data
         |> Map.replace!(:has_new, value)
@@ -180,7 +186,9 @@ defmodule Memo do
   # "how" can be :del or :add. With icons and text this is ignored.
   def room_data_handler(room_data) do
     receive do
+      ### Getters ###
       {:get, pid, {:room}} ->
+        #Logger.info ":get :room"
         send pid, room_data
         room_data_handler(room_data)
 
@@ -196,6 +204,7 @@ defmodule Memo do
         get_quest_pics room_data, resource_id, pid
         room_data_handler(room_data)
 
+      ### Setters ###
       {:set, pid, {:room, which_room_part, part_to_add, how}} ->
         set_room room_data, how, which_room_part, part_to_add, pid
         |> room_data_handler()
@@ -213,61 +222,80 @@ defmodule Memo do
     end
   end
 
-### USER_DATA_HANDLER GETTERS ###
+  ### USER_DATA_HANDLER GETTERS ###
   def get_friend(user_data, user_id, pid) do
-    friend = (user_data.friends |> Enum.find(fn({:friend, %{:user_id => x, :friends => _}}) -> x == user_id end))
+    #Logger.info "get_friend"
+    friend = user_data.friends |> Enum.find(fn({:friend, %{:user_id => x, :friends => _}}) -> x == user_id end)
+    #IO.inspect friend, limit: :infinity
     send pid, friend
   end
 
   def get_room_list(user_data, pid) do
+    #Logger.info "get_room_list"
+    #IO.inspect user_data.rooms
     send pid, {:memo, user_data.rooms}
   end
 
-### USER_DATA_HANDLER SETTERS ###
+  ### USER_DATA_HANDLER SETTERS ###
   def set_notif(user_data, how, notif, pid) do
     user_data.notifs
     |> Enum.member?(notif)
     |> case do
-      true when how == :add -> user_data
+
+      true when how == :add ->
+        #Logger.info "true, add"
+        user_data
+
       true when how == :del ->
+        #Logger.info "true, del"
         user_data
         |> Map.replace!(:notifs, user_data.notifs |> List.delete(notif))
+
       false when how == :add ->
-        new_user_data = user_data
+        #Logger.info "false, add"
+        user_data
         |> Map.replace!(:notifs, [notif | user_data.notifs])
-        send pid, {:memo, :ok}
-        new_user_data
+
       false when how == :del ->
+        #Logger.info "false, del"
         Logger.info {:memo, "Can't delete 'nothing'"}
     end
   end
 
   def set_friend(user_data, how, user_id, friend, pid) do
+    #Logger.info "set_friend"
+    #IO.inspect user_data.friends, limit: :infinity
     user_data.friends
-    |> Enum.find_index(fn {:friend, %{:user_id => ^user_id, :friends => _}} -> true end)
+    |> Enum.find_index(fn(%{:friend => %{:user_id => x, :friends => _}}) -> x == user_id end)
     |> case do
       nil when how == :add ->
+        #Logger.info "nil add"
         user_data
         |> Map.replace!(:friends, [friend | user_data.friends])
 
       nil when how == :del ->
+        #Logger.info "nil del"
         Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
 
       index when how == :add ->
+        #Logger.info "index add"
         user_data
         |> Map.replace!(:friends, [friend | user_data.friends |> List.delete_at(index)])
 
       index when how == :del ->
+        #Logger.info "index del"
         user_data
         |> Map.replace!(:friends, user_data.friends |> List.delete_at(index))
     end
   end
 
   def set_users_rooms(user_data, how, room_id, pid) do
-    user_data
-    |> Enum.find_index(fn %{:roomID => ^room_id} -> true end)
+    #Logger.info "set_users_rooms"
+    user_data.rooms
+    |> Enum.find_index(fn(%{:room_id => x}) -> x == room_id end)
     |> case do
       nil when how == :add ->
+        #Logger.info "nil add"
         user_data
         |> Map.replace!(:rooms, [%{:room_id => room_id} | user_data.rooms])
 
@@ -276,14 +304,14 @@ defmodule Memo do
 
       index when how == :del ->
         user_data
-        |> Map.replace!(:rooms, user_data |> List.delete_at(index))
+        |> Map.replace!(:rooms, user_data.rooms |> List.delete_at(index))
 
       _ when how == :add ->
         user_data
     end
   end
 
-### ROOM_DATA_HANDLER GETTERS ###
+  ### ROOM_DATA_HANDLER GETTERS ###
   def get_room(room_data, room_part, pid) do
     case room_part do
       :owner -> send pid, room_data.owner
@@ -307,7 +335,7 @@ defmodule Memo do
     |> Enum.find(fn(%{:quest_pic_id => ^quest_pic_id, :pic => _}) -> true end)
   end
 
-### ROOM_DATA_HANDLER SETTERS ###
+  ### ROOM_DATA_HANDLER SETTERS ###
   def set_room(room_data, how, room_part, part, pid) do
     case room_part do
       :owner ->
@@ -388,7 +416,7 @@ defmodule Memo do
     end
   end
 
-### FILE SAVE AND LOAD ###
+  ### FILE SAVE AND LOAD ###
   # TODO gör klar
   # Sparar till och laddar från fil
   def file_mux(file_path) do
