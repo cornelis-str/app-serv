@@ -445,8 +445,8 @@ defmodule Serv do
     end
   end
 
-  defp get_all_rooms([], rooms, pics), do: {rooms, pics}
-  defp get_all_rooms([map | rest], rooms, pics) do
+  def get_all_rooms([], rooms, pics), do: {rooms, pics}
+  def get_all_rooms([map | rest], rooms, pics) do
     send :memo_mux, {:room, map.room_id, {:get, self(), {:room}}}
     receive do
       {:error, error} -> Logger.info(error)
