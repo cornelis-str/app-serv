@@ -89,13 +89,13 @@ defmodule Serv do
         |> case do
           [_, to] ->
             [_, user_id2] = to |> String.split(":")
-            send :memo_mux, {:user, user_id, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}       #The exact moment Cornelis mind borke
-            send :memo_mux, {:user, user_id2, {:set, self(), %{:friend_request => %{:from => user_id, :to => user_id2}}, {:notifs, :set}}}
+            send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :set}}}       #The exact moment Cornelis mind borke
+            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :set}}}
           [_, to, group] ->
             [_, user_id2] = to |> String.split(":")
             [_, group_id] = group |> String.split(":")
-            send :memo_mux, {:user, user_id, {:set, self(), %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, {:notifs, :set}}}
-            send :memo_mux, {:user, user_id2, {:set, self(), %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, {:notifs, :set}}}
+            send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, :set}}}
+            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, :set}}}
         end
     end
   end

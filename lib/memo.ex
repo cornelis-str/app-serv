@@ -42,7 +42,9 @@ defmodule Memo do
   def memo_mux(user_pid_list, room_pid_list) do
     receive do
       {:user, user_id, action = {method, thing}} ->
+
         case method do
+
           :create_user ->
             #IO.inspect thing, limit: :infinity
             new_user_pid_list = user_pid_list
@@ -73,14 +75,19 @@ defmodule Memo do
 
         end
 
-      {:room, {room_id, action = {method, thing, _}}} ->
+      {:room, {room_id, action = {method, thing}}} when method == :add ->
+        # Ingen felhantering, går troligen att spawna oändligt med processer
+        new_room_pid_list = room_pid_list |> Map.put(room_id, spawn(fn -> room_data_handler(thing) end))
+        send room_pid_list[room_id], action
+        memo_mux user_pid_list, new_room_pid_list
+
+      {:room, {room_id, action = {method, _, _}}} ->
 
         case room_pid_list[room_id] do
 
-          nil when method == :add ->
-            new_room_pid_list = room_pid_list |> Map.put(room_id, spawn(fn -> room_data_handler(thing) end))
-            send room_pid_list[room_id], action
-            memo_mux user_pid_list, new_room_pid_list
+          nil ->
+            IO.inspect method
+            Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻"
 
           room_pid ->
             send room_pid, action
@@ -112,6 +119,7 @@ defmodule Memo do
 
   def user_data_handler(user_data) do
     receive do
+      ### Getters ###
       {:get, pid, {:user}} ->
         send pid, user_data
         user_data_handler(user_data)
@@ -136,16 +144,20 @@ defmodule Memo do
         send pid, user_data.has_new
         user_data_handler(user_data)
 
-      {:set, value, {:user_id}} ->
+      ### Setters ###
+      # ändrad
+      {:set, pid, {:user_id, value}} ->
         user_data
         |> Map.put(:user_id, value)
         |> user_data_handler()
 
-      {:set, pid, value, {:notifs, how}} ->
+      # ändrad
+      {:set, pid, {:notifs, value, how}} ->
         set_notif user_data, how, value, pid
         |> user_data_handler()
 
-      {:set, pid, value, {:friends, user_id, how}} ->
+      # ändrad
+      {:set, pid, {:friends, user_id, value, how}} ->
         set_friend user_data, how, user_id, value, pid
         |> user_data_handler()
 
@@ -153,7 +165,8 @@ defmodule Memo do
         set_users_rooms user_data, how, room_id, pid
         |> user_data_handler()
 
-      {:set, value, {:has_new}} ->
+      # ändrad
+      {:set, pid, {:has_new, value}} ->
         user_data
         |> Map.replace!(:has_new, value)
         |> user_data_handler()
