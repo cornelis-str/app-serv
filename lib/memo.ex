@@ -1,12 +1,13 @@
 defmodule Memo do
   require Logger
 
+  # TODO: vänner ska ha bilder? - senare problem. Börja med quests med bilder.
   # Memos interna struktur
   # user_data = %{
   # :user_id => lolcat,
   # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}},
   # %{:submitted => %{:from => user_id, :to => user_id, :quest_id}, :pic => bytearray|nil, :string => str|nil}, etc...],
-  # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
+  # :friends => [{:friend, %{:user_id => user_id, :friends => [{:user_id, amanda}, {:user_id, marcus}]}}, etc...],
   # :rooms => [%{:room_id => room_id}, etc...],
   # :hasNew => false | true
   # }
@@ -135,8 +136,11 @@ defmodule Memo do
         #IO.inspect user_data.notifs, limit: :infinity
         user_data_handler(user_data)
 
-      {:get, pid, {:friends, user_id}} ->
-        #Logger.info ":get friends"
+      {:get, pid, {:friends}} ->
+        send pid, user_data.friends
+        user_data_handler(user_data)
+
+      {:get, pid, {:friend, user_id}} ->
         get_friend user_data, user_id, pid
         user_data_handler(user_data)
 
