@@ -4,7 +4,8 @@ defmodule Memo do
   # Memos interna struktur
   # user_data = %{
   # :user_id => lolcat,
-  # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}}, etc...],
+  # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}},
+  # %{:submitted => %{:from => user_id, :to => user_id, :quest_id}, :pic => bytearray|nil, :string => str|nil}, etc...],
   # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
   # :rooms => [%{:room_id => room_id}, etc...],
   # :hasNew => false | true

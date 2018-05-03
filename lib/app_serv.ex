@@ -76,14 +76,15 @@ defmodule Serv do
 
   # Ta hand om POS requests:
   # ID:userID RID:
-  # FROM:userID TO:userID
+  # FROM:userID TO:userID +- ROOM:roomID +- QUEST:questID <string> eller en bild som skickas senare
   # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, data}}}
   # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, data}
   defp pos_req(str) do
     [h | _] = String.split(str, " ")
     String.split(h, ":")
     |> case do
-      ["ID", user_id] -> send :memo_mux, {:user, user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => []}}}
+      ["ID", user_id] ->
+        send :memo_mux, {:user, user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => []}}}
       ["FROM", user_id] ->
         str |> String.split(" ")
         |> case do
@@ -91,14 +92,46 @@ defmodule Serv do
             [_, user_id2] = to |> String.split(":")
             send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :set}}}       #The exact moment Cornelis mind borke
             send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :set}}}
-          [_, to, group] ->
+          [_, to, third | string] ->
             [_, user_id2] = to |> String.split(":")
-            [_, group_id] = group |> String.split(":")
-            send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, :set}}}
-            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => group_id}}, :set}}}
+            third |> String.split(":")
+            |> case do
+              ["ROOM", room_id] ->
+                pos_req_room(user_id, user_id2, room_id)
+              ["QUEST", quest_id]->
+                pos_req_quest(user_id, user_id2, quest_id, string)
+            end
         end
     end
   end
+
+  defp pos_req_room(user_id, user_id2, room_id) do
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :set}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :set}}}
+    case all_oks(2) do
+      :ok ->
+        :ok
+      error ->
+        Logger.info(error)
+    end
+  end
+
+  defp pos_req_quest(user_id, user_id2, quest_id, string) do
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs,
+    %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
+    :set}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs,
+    %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
+    :set}}}
+    case all_oks(2) do
+      :ok ->
+        :ok
+      error ->
+        Logger.info(error)
+    end
+  end
+
+
 
   #TODO gör om gör rätt
   defp put_pic_req(tail, socket) do
@@ -143,6 +176,7 @@ defmodule Serv do
 # Om du lägger till ett quest skickas detta vidare till action roomhandler, som tar emot: {:room, {room_id, action}}
 # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
 # how = :add eller :del
+# thing@userName@roomName@ | missionOwner@missionName | @misisonPart | @thingName
   defp put_req(str) do
     [id, rid | _] = str |> String.split(" ")
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
@@ -155,15 +189,25 @@ defmodule Serv do
       [_, owner_id, room_id] ->
         {:ok, owner} = decoded |> Map.fetch("owner")
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}
+
         {:ok, room_name} = decoded |> Map.fetch("roomName")
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}
+
         {:ok, desc} = decoded |> Map.fetch("description")
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}
+
         members = member_parser(decoded |> Map.fetch("members"), [])
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}
+
+        case all_oks(4) do
+          :ok ->
+            :ok
+          error ->
+            Logger.info(error)
+        end
       # Quest
-      [_, owner_id, room_id, mission_id] ->
-        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", json}}}
+      [_, owner_id, room_id, mission_owner, mission_id] ->
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_owner}@#{mission_id}", json}}}
     end
   end
 
@@ -173,30 +217,83 @@ defmodule Serv do
     member_parser(rest, [{:user, user_id} | sofar])
   end
 
-  #TODO: del-requests som hanterar notifs.
+  defp all_oks(0), do: :ok
+  defp all_oks(int) do
+    receive do
+      {:error, error} -> error
+      {:memo, :ok} -> all_oks(int-1)
+    end
+  end
+
+  # "ID:userID RID:resourceID"
+  # "FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID"
+  defp del_req(str) do
+    str |> String.split(":")
+    |> case do
+      ["ID" | _] ->
+        del_room_quest(str)
+      ["FROM" | _] ->
+        del_notifs(str)
+    end
+  end
+
+  # "FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID +- string"
+  # Skickar till memo_mux: {:user, user_id, action}
+  # action skickas till set notifs: {:set, pid, value, {:notifs, how}}
+  defp del_notifs(str) do
+    str |> String.split(" ")
+    |> case do
+      [userID, userID2] ->
+        [_, user_id] = userID |> String.split(":")
+        [_, user_id2] = userID2 |> String.split(":")
+        send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
+        send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
+        case all_oks(2) do
+          :ok ->
+            :ok
+          error ->
+            Logger.info(error)
+        end
+      [userID, userID2, third] ->
+        [_, user_id] = userID |> String.split(":")
+        [_, user_id2] = userID2 |> String.split(":")
+        third |> String.split(":")
+        |> case do
+          ["GROUP", room_id] ->
+            send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
+            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
+          ["QUEST", quest_id | string] ->
+            send :memo_mux, {:user, user_id, {:set, self(), {:notifs,
+            %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
+            :del}}}
+            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs,
+            %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
+            :del}}}
+        end
+    end
+  end
+
   # Tar emot:
   # "ID:userID RID:resourceID"
   # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
   # Om du tar bort ett room skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:room, room_id, :del}}
   # Om du tar bort en mission skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:quest, quest_id, quest, how}}
-  # TODO: del friendrequests
-  defp del_req(str) do
+  defp del_room_quest(str) do
     [_, resource_id] = str |> String.split(" ")
-    #[_, user_id] = user_id |> String.split("ID:")
     [_, resource_id] = resource_id |> String.split("RID:")
     resource_id |> String.split("@")
     |> case do
       [_, owner_id, room_id] ->
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, "#{}@#{room_id}", :del}}}
-      [_, owner_id, room_id, mission_id] ->
-        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_id}", nil, :del}}}
+      [_, owner_id, room_id, mission_owner, mission_id] ->
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_owner}@#{mission_id}", nil, :del}}}
     end
   end
 
 
   # Get req
   # ID:userID
-  # FROM:userID TO:userID | GROUP:groupID
+  # FROM:userID TO:userID +- GROUP:groupID +- ROOM:roomID
   defp get_req(str) do
     str |> String.split(" ")
     |> case do
