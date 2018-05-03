@@ -68,7 +68,7 @@ defmodule Tests do
     send :memo_mux, {:user, "plop", {:set, self(), {:friends, "user_id", friend1, :add}}}
     send :memo_mux, {:user, "plop", {:set, self(), {:friends, "other_user_id", friend2, :add}}}
 
-    send :memo_mux, {:user, "plop", {:get, self(), {:friends, "user_id"}}}
+    send :memo_mux, {:user, "plop", {:get, self(), {:friend, "user_id"}}}
 
     receive do
       t ->
@@ -76,7 +76,7 @@ defmodule Tests do
         IO.inspect t, limit: :infinity
     end
 
-    send :memo_mux, {:user, "plop", {:get, self(), {:friends, "other_user_id"}}}
+    send :memo_mux, {:user, "plop", {:get, self(), {:friend, "other_user_id"}}}
 
     receive do
       t ->
