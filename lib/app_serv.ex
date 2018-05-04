@@ -138,9 +138,6 @@ defmodule Serv do
     end
   end
 
-
-
-  # TODO gör om gör rätt
   # <picID> <byte_len> + <byte[]>
   defp put_pic_req(str, socket) do
     #IO.inspect tail, limit: :infinity
@@ -160,12 +157,13 @@ defmodule Serv do
     Logger.info("ok2 sent")
 
     # save
-    pic_mess |> Enum.reverse() # |> send_mess(socket) TODO Byt ut mot spara till memo
+    pic_mess |> Enum.reverse()
     |> save_pic(pic_id)
   end
 
   # picID = IMAG@userName@roomName | @missionOwner@missionName@misisonPart@thingName
   # picID = SUBM@userName@roomName@missionOwner@missionName
+  # TODO:
   defp save_pic(pic, pic_id) do
     pic_id |> String.split("@")
     |> case do
@@ -222,10 +220,9 @@ defmodule Serv do
         {:ok, desc} = decoded |> Map.fetch("description")
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}
 
+        # TODO: lägg till FÖRFRÅGNINGAR, inte lägg till direkt som members i rum.
         members = member_parser(decoded |> Map.fetch("members"), [])
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}
-
-        # TODO: lägg till FÖRFRÅGNINGAR, inte lägg till direkt som members i rum.
 
         case all_oks(4) do
           :ok ->
@@ -419,7 +416,8 @@ defmodule Serv do
             send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => str}, :del}}}
             send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => str}, :del}}}
             # TODO: detta:
-            # Hur vet användaren att den klarat questen. Förslag på datastruktur: {:notifs, %{:accepted => {:quest_id, quest_id}}, behövs inget annat
+            # Hur vet användaren att den klarat questen. Förslag på datastruktur: {:notifs, %{:accepted => {:quest_id, quest_id}}, behövs inget annat.
+            # Skickas endast internt/tas emot, skickas inte i av klient
             # send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:accepted => {:quest_id, quest_id}}, :del}}}
         end
     end
@@ -458,9 +456,8 @@ defmodule Serv do
     end
   end
 
-  # TODO
   defp send_update({json, pics}, socket) do
-    write_line("200\r\n", socket)
+    write_line("200 ", socket)
     write_line(json, socket)
     write_line("\r\n", socket)
     send_all_pics(pics, socket)
@@ -472,9 +469,11 @@ defmodule Serv do
     picmap |> Map.fetch(:room_id)
     |> case do
       :error ->
-        write_line("pic len=" + length(picmap.pic) + picmap.quest_pic_id, socket)
+        write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.quest_pic_id + "\r\n", socket)
+        send_mess(picmap.pic, socket)
       {:ok, :room_id} ->
-        write_line("pic len=" + length(picmap.pic) + picmap.room_id, socket)
+        write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.room_id + "\r\n", socket)
+        send_mess(picmap.pic, socket)
     end
     case read_line(socket) do
       "ok" ->
@@ -506,7 +505,6 @@ defmodule Serv do
     end
   end
 
-  # TODO InProgress
   # Skickar data från lista till socket, exempelvis en bild?
   defp send_mess([], socket), do: write_line("\r\n", socket)
   defp send_mess([h|t], socket) do
