@@ -36,10 +36,10 @@ defmodule Serv do
     case read_line(socket) do
       {:error, error} -> Logger.info("serve: #{error}")
       mess ->
+        Logger.info("Message received: #{mess}")
         parse(mess, socket)
         write_line(mess, socket)
         write_line("\r\n", socket)
-        "echoed" |> Logger.info()
         serve(socket)
     end
   end
@@ -49,7 +49,8 @@ defmodule Serv do
   """
   def parse(mess, socket) do
     # Gör lista av sträng
-    [h | tail] = String.split(mess, " ")
+    [h | tail] = String.split_at(mess, 4)
+    Logger.info(tail)
     case h do
       # Skickar vidare info och startar process om POS request
       "POS" -> spawn fn -> pos_req(tail, socket) end
@@ -79,7 +80,8 @@ defmodule Serv do
   # FROM:userID TO:userID +- ROOM:roomID +- QUEST:questID <string> eller en bild som skickas senare
   # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, data}}}
   # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, data}
-  defp pos_req(str, socket) do
+  defp pos_req([str], socket) do
+    Logger.info("POS REQ: #{str}")
     [h | _] = String.split(str, " ")
     String.split(h, ":")
     |> case do
@@ -139,7 +141,7 @@ defmodule Serv do
   end
 
   # <picID> <byte_len> + <byte[]>
-  defp put_pic_req(str, socket) do
+  defp put_pic_req([str], socket) do
     #IO.inspect tail, limit: :infinity
     [pic_id, len] = str |> String.split(" ")
 
@@ -210,7 +212,8 @@ defmodule Serv do
 # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
 # how = :add eller :del
 # thing@userName@roomName@ | missionOwner@missionName | @misisonPart | @thingName
-  defp put_req(str, socket) do
+  defp put_req([str], socket) do
+    Logger.info("POS REQ: #{str}")
     [id, rid | _] = str |> String.split(" ")
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
@@ -252,7 +255,7 @@ defmodule Serv do
 
   # "ID:userID RID:resourceID"
   # "FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID"
-  defp del_req(str, socket) do
+  defp del_req([str], socket) do
     str |> String.split(":")
     |> case do
       ["ID" | _] ->
@@ -357,7 +360,8 @@ defmodule Serv do
   # FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID +- string
   # memo_mux tar emot: {:user, user_id, action = {method, _, _}}
   # skickar vidare action som ska vara: action = {:set, pid, {:friends, user_id, value, how}}
-  defp get_req(str, socket) do
+  defp get_req([str], socket) do
+    Logger.info("GET REQ: #{str}")
     str |> String.split(" ")
     |> case do
       [user] ->
@@ -374,6 +378,8 @@ defmodule Serv do
           ["QUEST", quest_id | str] ->
             get_quest_subm(user_id, user_id2, quest_id, str, socket)
         end
+      _ ->
+      Logger.info("wtf")
     end
   end
 
@@ -411,7 +417,6 @@ defmodule Serv do
   end
 
   defp get_room_req(user_id, user_id2, room_id, socket) do
-    IO.puts("not implemented")
     # ta bort grupp/rum förfrågan
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
