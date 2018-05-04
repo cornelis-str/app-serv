@@ -49,29 +49,37 @@ defmodule Serv do
   """
   def parse(mess, socket) do
     # Gör lista av sträng
-    [h | tail] = String.split_at(mess, 4)
-    Logger.info(tail)
+    {h, tail} = String.split_at(mess, 4)
+    Logger.info("tail: #{tail}")
     case h do
       # Skickar vidare info och startar process om POS request
-      "POS" -> spawn fn -> pos_req(tail, socket) end
+      "POS " ->
+        Logger.info "POS"
+        spawn fn -> pos_req(tail, socket) end
 
       # Skickar vidare info och startar process om PUT request
-      "PUT" ->
+      "PUT " ->
+        Logger.info "PUT?"
         # PUT requests kan vara av olika typ vanlig och PIC
-        case tail do
-          ["PIC"|t] ->
-            spawn fn -> put_pic_req(t, socket) end
-
+        tail |> String.split_at(4)
+        |> case do
+          {"PIC ", things} ->
+            Logger.info "PUT PIC"
+            spawn fn -> put_pic_req(things, socket) end
           _ ->
+            Logger.info "PUT!"
             IO.inspect tail, limit: :infinity
             spawn fn -> put_req(tail, socket) end
         end
-
       # Skickar vidare info och startar process om DEL request
-      "DEL" -> spawn fn -> del_req(tail, socket) end
+      "DEL " ->
+        Logger.info "DEL"
+        spawn fn -> del_req(tail, socket) end
 
       # Skickar vidare info och startar process om PUT request
-      "GET" -> spawn fn -> get_req(tail, socket) end
+      "GET " ->
+        Logger.info "GET"
+        spawn fn -> get_req(tail, socket) end
     end
   end
 
@@ -80,7 +88,7 @@ defmodule Serv do
   # FROM:userID TO:userID +- ROOM:roomID +- QUEST:questID <string> eller en bild som skickas senare
   # memo_mux tar emot: {:user, {user_id, {:set, self, {:notifs, :set}, data}}}
   # skickar vidare till user_data_handler: {:set, self, {:notifs, :set}, data}
-  defp pos_req([str], socket) do
+  defp pos_req(str, socket) do
     Logger.info("POS REQ: #{str}")
     [h | _] = String.split(str, " ")
     String.split(h, ":")
@@ -141,7 +149,7 @@ defmodule Serv do
   end
 
   # <picID> <byte_len> + <byte[]>
-  defp put_pic_req([str], socket) do
+  defp put_pic_req(str, socket) do
     #IO.inspect tail, limit: :infinity
     [pic_id, len] = str |> String.split(" ")
 
@@ -212,11 +220,15 @@ defmodule Serv do
 # Om du uppdaterar ett rum/skapar ett rum förväntar sig roomhandler action: {:set, pid, {:room, which_room_part, part_to_add, :how}}
 # how = :add eller :del
 # thing@userName@roomName@ | missionOwner@missionName | @misisonPart | @thingName
-  defp put_req([str], socket) do
-    Logger.info("POS REQ: #{str}")
+  defp put_req(str, socket) do
+    Logger.info("PUT REQ")
     [id, rid | _] = str |> String.split(" ")
+    IO.inspect str, limit: :infinity
+    IO.inspect id, limit: :infinity
+    IO.inspect rid, limit: :infinity
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
+    IO.inspect decoded, limit: :infinity
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
     |> case do
@@ -255,7 +267,7 @@ defmodule Serv do
 
   # "ID:userID RID:resourceID"
   # "FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID"
-  defp del_req([str], socket) do
+  defp del_req(str, socket) do
     str |> String.split(":")
     |> case do
       ["ID" | _] ->
@@ -360,7 +372,7 @@ defmodule Serv do
   # FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID +- string
   # memo_mux tar emot: {:user, user_id, action = {method, _, _}}
   # skickar vidare action som ska vara: action = {:set, pid, {:friends, user_id, value, how}}
-  defp get_req([str], socket) do
+  defp get_req(str, socket) do
     Logger.info("GET REQ: #{str}")
     str |> String.split(" ")
     |> case do
@@ -452,10 +464,13 @@ defmodule Serv do
   # Get update
   defp get_upd(str) do
     [_, user_id] = str |> String.split(":")
+    IO.inspect(user_id)
+    IO.inspect(str)
     send :memo_mux, {:user, user_id, {:get, self(), {:user}}}
     receive do
-      {:error, error} -> Logger.info(error)
+      {:error, error} -> Logger.info("ERROR IS HERE #{error}")
       user_data ->
+        Logger.info("happens")
         {rooms, pics} = user_data.rooms |> get_all_rooms([], [])
         user_data_rooms = user_data |> Map.replace!(:rooms, rooms)
         user_data_rooms_json = Jason.encode!(user_data_rooms)
