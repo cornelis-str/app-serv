@@ -30,7 +30,7 @@ defmodule Tests do
     friend_request = %{:friend_request => %{:from => "lolcat", :to => "doggo"}}
     room_invite = %{:room_invite => %{:room => [], :to => "doggo"}}
     quest_invite =
-      %{:submitted => %{:from => "lolcat", :to => "doggo", :quest_id => "Run Damn It"}, :pic => nil, :string => "hi"}
+      %{:submitted => %{:from => "lolcat", :to => "doggo", :quest_id => "Run Damn It"}, :pic => "x", :string => "hi"}
 
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, friend_request, :add}}}
     send :memo_mux, {:user, "plop", {:get, self(), {:notifs}}}
