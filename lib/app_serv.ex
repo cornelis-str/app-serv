@@ -163,18 +163,27 @@ defmodule Serv do
 
   # picID = IMAG@userName@roomName | @missionOwner@missionName@misisonPart@thingName
   # picID = SUBM@userName@roomName@missionOwner@missionName
-  # TODO:
   defp save_pic(pic, pic_id) do
     pic_id |> String.split("@")
     |> case do
       ["IMAG", owner_id, room_id] ->
         # Spara rumbild
-        "stuff"
+        # memo_mux: {:room, room_id, action}
+        # action som skickas till roomhandler: {:set, pid, {:room, which_room_part, part_to_add, how}}
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :icon, pic, :add}}}
       ["IMAG", owner_id, room_id, quest_owner, quest_id, quest_part_id] ->
         # Spara questbilder
-        "stuffier"
+        # memo_mux -> room_data_handler -> set_quest_pics
+        # memo_mux: {:room, room_id, action}
+        # room_data_handler: {:set, pid, {:quest_pic, resource_id, resource, how}
+        # data struktur :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
+        # TODO: kanske inte pic_id, kanske pic_id - "IMAG"
+        send :memo_mux, {:room, "#{owner_id}@#{room_id}",
+          {:set, self(), {:quest_pic, pic_id, %{:quest_pic_id => pic_id, :pic => pic}, :add}}
+        }
       ["SUBM", owner_id, room_id, quest_owner, quest_id] ->
         # Submitted quest-pictures
+        # TODO:
         "stuffiest"
     end
   end
@@ -205,32 +214,12 @@ defmodule Serv do
     [id, rid | _] = str |> String.split(" ")
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
-    #[_, user_id] = id |> String.split(":")
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
     |> case do
       # Room
       [_, owner_id, room_id] ->
-        {:ok, owner} = decoded |> Map.fetch("owner")
-        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}
-
-        {:ok, room_name} = decoded |> Map.fetch("roomName")
-        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}
-
-        {:ok, desc} = decoded |> Map.fetch("description")
-        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}
-
-        # TODO: lägg till FÖRFRÅGNINGAR, inte lägg till direkt som members i rum.
-        members = member_parser(decoded |> Map.fetch("members"), [])
-        send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :members, members, :add}}}
-
-        case all_oks(4) do
-          :ok ->
-            write_line("201\r\n", socket)
-          error ->
-            Logger.info(error)
-        end
-
+        put_room(decoded, owner_id, room_id, socket)
       # Quest
       [_, owner_id, room_id, mission_owner, mission_id] ->
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_owner}@#{mission_id}", json}}}
@@ -243,17 +232,21 @@ defmodule Serv do
     end
   end
 
-  defp member_parser([], ret), do: ret
-  defp member_parser([map | rest], sofar) do
-    {:ok, user_id} = map |> Map.fetch("userName")
-    member_parser(rest, [{:user, user_id} | sofar])
-  end
+  defp put_room(decoded, owner_id, room_id, socket) do
+    {:ok, owner} = decoded |> Map.fetch("owner")
+    send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}
 
-  defp all_oks(0), do: :ok
-  defp all_oks(int) do
-    receive do
-      {:error, error} -> error
-      {:memo, :ok} -> all_oks(int-1)
+    {:ok, room_name} = decoded |> Map.fetch("roomName")
+    send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}
+
+    {:ok, desc} = decoded |> Map.fetch("description")
+    send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}
+
+    case all_oks(4) do
+      :ok ->
+        write_line("201\r\n", socket)
+      error ->
+        Logger.info(error)
     end
   end
 
@@ -276,44 +269,56 @@ defmodule Serv do
     str |> String.split(" ")
     |> case do
       [userID, userID2] ->
-        [_, user_id] = userID |> String.split(":")
-        [_, user_id2] = userID2 |> String.split(":")
-        send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
-        send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
-        case all_oks(2) do
-          :ok ->
-            write_line("201\r\n", socket)
-          error ->
-            Logger.info(error)
-        end
+        del_friend_req(userID, userID2, socket)
       [userID, userID2, third] ->
         [_, user_id] = userID |> String.split(":")
         [_, user_id2] = userID2 |> String.split(":")
         third |> String.split(":")
         |> case do
           ["GROUP", room_id] ->
-            send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
-            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
-            case all_oks(2) do
-              :ok ->
-                write_line("201\r\n", socket)
-              error ->
-                Logger.info(error)
-            end
+            del_room_req(room_id, user_id, user_id2, socket)
           ["QUEST", quest_id | string] ->
-            send :memo_mux, {:user, user_id, {:set, self(), {:notifs,
-            %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
-            :del}}}
-            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs,
-            %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
-            :del}}}
-            case all_oks(2) do
-              :ok ->
-                write_line("201\r\n", socket)
-              error ->
-                Logger.info(error)
-            end
+            del_quest_subm(user_id, user_id2, quest_id, string, socket)
         end
+    end
+  end
+
+  defp del_friend_req(userID, userID2, socket) do
+    [_, user_id] = userID |> String.split(":")
+    [_, user_id2] = userID2 |> String.split(":")
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
+    case all_oks(2) do
+      :ok ->
+        write_line("201\r\n", socket)
+      error ->
+        Logger.info(error)
+    end
+  end
+
+  defp del_room_req(room_id, user_id, user_id2, socket) do
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
+    case all_oks(2) do
+      :ok ->
+        write_line("201\r\n", socket)
+      error ->
+        Logger.info(error)
+    end
+  end
+
+  defp del_quest_subm(user_id, user_id2, quest_id, string, socket) do
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs,
+    %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
+    :del}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs,
+    %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
+    :del}}}
+    case all_oks(2) do
+      :ok ->
+        write_line("201\r\n", socket)
+      error ->
+        Logger.info(error)
     end
   end
 
@@ -358,69 +363,79 @@ defmodule Serv do
       [user] ->
         get_upd(user) |> send_update(socket)
       [from, to] ->
-        [_, user_id] = from |> String.split(":")
-        [_, user_id2] = to |> String.split(":")
-
-        # lägg till en ny friend på user_id och user_id2
-        # plocka ut alla vänner från user_id, bygg denna person som "vän"
-        send :memo_mux, {:user, user_id, {:get, self(), {:friends}}}
-        receive do
-          friends ->
-            list1 = parse_friends(friends, [])
-        end
-
-        send :memo_mux, {:user, user_id2, {:get, self(), {:friends}}}
-        receive do
-          friends ->
-            list2 = parse_friends(friends, [])
-        end
-
-        # add new friends:
-        send :memo_mux, {:user, user_id, {:set, self(), {:friends, user_id, {:friend, %{:user_id => user_id2, :friends => list1}}, :add}}}
-        send :memo_mux, {:user, user_id2, {:set, self(), {:friends, user_id2, {:friend, %{:user_id => user_id, :friends => list2}}, :add}}}
-        # Delete req
-        send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
-        send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
-
-        case all_oks(6) do
-          :ok ->
-            write_line("201\r\n", socket)
-          error ->
-            Logger.info(error)
-        end
-
+        get_friend_req(from, to, socket)
       [from, to, third] ->
         [_, user_id] = from |> String.split(":")
         [_, user_id2] = to |> String.split(":")
         third |> String.split(":")
         |> case do
           ["GROUP", room_id] ->
-            IO.puts("not implemented")
-            # ta bort grupp/rum förfrågan
-            send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
-            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
-            # Lägg till gruppen i user-data:
-            send :memo_mux, {:user, user_id2, {:set, self(), {:rooms, room_id, :add}}}
-            # lägg till som member i gruppen (room_data):
-            send :memo_mux, {:room, room_id, {:set, self(), {:room, :users, %{:user => user_id2}, :add}}}
-
-            case all_oks(4) do
-              :ok ->
-                write_line("201\r\n", socket)
-              error ->
-                Logger.info(error)
-            end
-
+            get_room_req(user_id, user_id2, room_id, socket)
           ["QUEST", quest_id | str] ->
-            # TODO: Hur deletear jag notifs utan bilden som jag inte kan ha fått i detta steg eftersom det är så vår kommunikation funkar.
-            send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => str}, :del}}}
-            send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => str}, :del}}}
-            # TODO: detta:
-            # Hur vet användaren att den klarat questen. Förslag på datastruktur: {:notifs, %{:accepted => {:quest_id, quest_id}}, behövs inget annat.
-            # Skickas endast internt/tas emot, skickas inte i av klient
-            # send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:accepted => {:quest_id, quest_id}}, :del}}}
+            get_quest_subm(user_id, user_id2, quest_id, str, socket)
         end
     end
+  end
+
+  defp get_friend_req(from, to, socket) do
+    [_, user_id] = from |> String.split(":")
+    [_, user_id2] = to |> String.split(":")
+
+    # lägg till en ny friend på user_id och user_id2
+    # plocka ut alla vänner från user_id, bygg denna person som "vän"
+    send :memo_mux, {:user, user_id, {:get, self(), {:friends}}}
+    receive do
+      friends ->
+        list1 = parse_friends(friends, [])
+    end
+
+    send :memo_mux, {:user, user_id2, {:get, self(), {:friends}}}
+    receive do
+      friends ->
+        list2 = parse_friends(friends, [])
+    end
+
+    # add new friends:
+    send :memo_mux, {:user, user_id, {:set, self(), {:friends, user_id, {:friend, %{:user_id => user_id2, :friends => list1}}, :add}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:friends, user_id2, {:friend, %{:user_id => user_id, :friends => list2}}, :add}}}
+    # Delete req
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
+
+    case all_oks(6) do
+      :ok ->
+        write_line("201\r\n", socket)
+      error ->
+        Logger.info(error)
+    end
+  end
+
+  defp get_room_req(user_id, user_id2, room_id, socket) do
+    IO.puts("not implemented")
+    # ta bort grupp/rum förfrågan
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
+    # Lägg till gruppen i user-data:
+    send :memo_mux, {:user, user_id2, {:set, self(), {:rooms, room_id, :add}}}
+    # lägg till som member i gruppen (room_data):
+    send :memo_mux, {:room, room_id, {:set, self(), {:room, :users, %{:user => user_id2}, :add}}}
+
+    case all_oks(4) do
+      :ok ->
+        write_line("201\r\n", socket)
+      error ->
+        Logger.info(error)
+    end
+  end
+
+  defp get_quest_subm(user_id, user_id2, quest_id, str, socket) do
+    # TODO: Hur deletear jag notifs utan bilden som jag inte kan ha fått i detta steg eftersom det är så vår kommunikation funkar.
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => str}, :del}}}
+    send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => str}, :del}}}
+    # TODO: berätta för Marcus:
+    # Hur vet användaren att den klarat questen. Förslag på datastruktur: {:notifs, %{:accepted => {:quest_id, quest_id}}, behövs inget annat.
+    # Skickas endast internt/tas emot, skickas inte i av klient
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:accepted => {:quest_id, quest_id}}, :del}}}
   end
 
   # :friends => [{:friend, %{:user_id => user_id, :friends => [{:user_id, amanda}, {:user_id, marcus}]}}, etc...]
@@ -475,10 +490,7 @@ defmodule Serv do
         write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.room_id + "\r\n", socket)
         send_mess(picmap.pic, socket)
     end
-    case read_line(socket) do
-      "ok" ->
-        send_all_pics(pics, socket)
-    end
+    send_all_pics(pics, socket)
   end
 
   # Läser bytes antal bytes från socker-sött
@@ -511,6 +523,14 @@ defmodule Serv do
     case write_line(h, socket) do
       :ok ->  send_mess(t, socket)
       {:error, error} -> Logger.info("send_mess: #{error}")
+    end
+  end
+
+  defp all_oks(0), do: :ok
+  defp all_oks(int) do
+    receive do
+      {:error, error} -> error
+      {:memo, :ok} -> all_oks(int-1)
     end
   end
 end
