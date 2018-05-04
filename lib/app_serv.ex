@@ -402,7 +402,7 @@ defmodule Serv do
             # Lägg till gruppen i user-data:
             send :memo_mux, {:user, user_id2, {:set, self(), {:rooms, room_id, :add}}}
             # lägg till som member i gruppen (room_data):
-            send :memo_mux, {:room, room_id, {:set, self(), {:room, :users, %{:user, user_id2}, :add}}}
+            send :memo_mux, {:room, room_id, {:set, self(), {:room, :users, %{:user => user_id2}, :add}}}
 
             case all_oks(4) do
               :ok ->
