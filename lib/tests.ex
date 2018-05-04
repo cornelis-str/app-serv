@@ -9,6 +9,7 @@ defmodule Tests do
       :rooms => [],
       :has_new => false
     }
+
     send :memo_mux, {:user, "plop", {:create_user, user}}
     send :memo_mux, {:user, "plop", {:get, self(), {:user}}}
     receive do
@@ -224,8 +225,7 @@ defmodule Tests do
 
     receive do
       t ->
-        Logger.info "A room"
-        IO.inspect t, limit: :infinity
+        IO.inspect t, [limit: :infinity, label: "A room"]
     end
   end
 

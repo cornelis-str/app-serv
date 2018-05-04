@@ -36,10 +36,10 @@ defmodule Serv do
     case read_line(socket) do
       {:error, error} -> Logger.info("serve: #{error}")
       mess ->
-        Logger.info("Message received: #{mess}")
+        #Logger.info("Message received: #{mess}")
         parse(mess, socket)
-        write_line(mess, socket)
-        write_line("\r\n", socket)
+        #write_line(mess, socket)
+        #write_line("\r\n", socket)
         serve(socket)
     end
   end
@@ -50,7 +50,7 @@ defmodule Serv do
   def parse(mess, socket) do
     # Gör lista av sträng
     {h, tail} = String.split_at(mess, 4)
-    Logger.info("tail: #{tail}")
+    #Logger.info("tail: #{tail}")
     case h do
       # Skickar vidare info och startar process om POS request
       "POS " ->
@@ -65,6 +65,7 @@ defmodule Serv do
         |> case do
           {"PIC ", things} ->
             Logger.info "PUT PIC"
+            # Does room exist yet?
             spawn fn -> put_pic_req(things, socket) end
           _ ->
             Logger.info "PUT!"
@@ -78,7 +79,7 @@ defmodule Serv do
 
       # Skickar vidare info och startar process om PUT request
       "GET " ->
-        Logger.info "GET"
+        #Logger.info "GET"
         spawn fn -> get_req(tail, socket) end
     end
   end
@@ -94,13 +95,15 @@ defmodule Serv do
     String.split(h, ":")
     |> case do
       ["ID", user_id] ->
-        send :memo_mux, {:user, user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => []}}}
+        send :memo_mux, {:user, user_id, {:create_user, %{:user_id => user_id, :notifs =>[], :friends => [], :rooms => [], :has_new => false}}}
+      """
         receive do
           {:memo, :ok} ->
             write_line("201\r\n", socket)
           {:error, error} ->
             Logger.info(error)
         end
+      """
       ["FROM", user_id] ->
         str |> String.split(" ")
         |> case do
@@ -223,7 +226,7 @@ defmodule Serv do
   defp put_req(str, socket) do
     Logger.info("PUT REQ")
     [id, rid | _] = str |> String.split(" ")
-    IO.inspect str, limit: :infinity
+    IO.inspect  str, [limit: :infinity, label: "put req str"]
     IO.inspect id, limit: :infinity
     IO.inspect rid, limit: :infinity
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
@@ -234,35 +237,45 @@ defmodule Serv do
     |> case do
       # Room
       [_, owner_id, room_id] ->
+        Logger.info"put_req Room"
         put_room(decoded, owner_id, room_id, socket)
       # Quest
       [_, owner_id, room_id, mission_owner, mission_id] ->
+        Logger.info "put_req Quest"
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:quest, "#{owner_id}@#{room_id}@#{mission_owner}@#{mission_id}", json}}}
+      """
         receive do
           {:memo, :ok} ->
             write_line("201\r\n", socket)
           {:error, error} ->
             Logger.info(error)
         end
+      """
     end
   end
 
   defp put_room(decoded, owner_id, room_id, socket) do
     {:ok, owner} = decoded |> Map.fetch("owner")
+    IO.inspect owner, lable: "put_room owner"
     send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :owner, owner, :add}}}
 
     {:ok, room_name} = decoded |> Map.fetch("roomName")
+    IO.inspect room_name, lable: "put_room room_name"
     send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :name, room_name, :add}}}
 
     {:ok, desc} = decoded |> Map.fetch("description")
+    IO.inspect desc, lable: "put_room desc"
     send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :topic, desc, :add}}}
 
+    Logger.info "Cornelis mamma!!!"
+"""
     case all_oks(4) do
       :ok ->
         write_line("201\r\n", socket)
       error ->
         Logger.info(error)
     end
+"""
   end
 
   # "ID:userID RID:resourceID"
@@ -303,23 +316,27 @@ defmodule Serv do
     [_, user_id2] = userID2 |> String.split(":")
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
+  """
     case all_oks(2) do
       :ok ->
         write_line("201\r\n", socket)
       error ->
         Logger.info(error)
     end
+  """
   end
 
   defp del_room_req(room_id, user_id, user_id2, socket) do
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:group_request => %{:from => user_id, :to => user_id2, :group => room_id}}, :del}}}
+  """
     case all_oks(2) do
       :ok ->
         write_line("201\r\n", socket)
       error ->
         Logger.info(error)
     end
+  """
   end
 
   defp del_quest_subm(user_id, user_id2, quest_id, string, socket) do
@@ -329,12 +346,14 @@ defmodule Serv do
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs,
     %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => string},
     :del}}}
+  """
     case all_oks(2) do
       :ok ->
         write_line("201\r\n", socket)
       error ->
         Logger.info(error)
     end
+  """
   end
 
   # Tar emot:
@@ -373,7 +392,7 @@ defmodule Serv do
   # memo_mux tar emot: {:user, user_id, action = {method, _, _}}
   # skickar vidare action som ska vara: action = {:set, pid, {:friends, user_id, value, how}}
   defp get_req(str, socket) do
-    Logger.info("GET REQ: #{str}")
+    #Logger.info("GET REQ: #{str}")
     str |> String.split(" ")
     |> case do
       [user] ->
@@ -391,7 +410,7 @@ defmodule Serv do
             get_quest_subm(user_id, user_id2, quest_id, str, socket)
         end
       _ ->
-      Logger.info("wtf")
+        Logger.info("wtf")
     end
   end
 
@@ -419,13 +438,14 @@ defmodule Serv do
     # Delete req
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, %{:friend_request => %{:from => user_id, :to => user_id2}}, :del}}}
-
+"""
     case all_oks(6) do
       :ok ->
         write_line("201\r\n", socket)
       error ->
         Logger.info(error)
     end
+"""
   end
 
   defp get_room_req(user_id, user_id2, room_id, socket) do
@@ -436,13 +456,14 @@ defmodule Serv do
     send :memo_mux, {:user, user_id2, {:set, self(), {:rooms, room_id, :add}}}
     # lägg till som member i gruppen (room_data):
     send :memo_mux, {:room, room_id, {:set, self(), {:room, :users, %{:user => user_id2}, :add}}}
-
+"""
     case all_oks(4) do
       :ok ->
         write_line("201\r\n", socket)
       error ->
         Logger.info(error)
     end
+"""
   end
 
   defp get_quest_subm(user_id, user_id2, quest_id, str, socket) do
@@ -464,14 +485,15 @@ defmodule Serv do
   # Get update
   defp get_upd(str) do
     [_, user_id] = str |> String.split(":")
-    IO.inspect(user_id)
-    IO.inspect(str)
+    #IO.inspect(user_id)
+    #IO.inspect(str)
     send :memo_mux, {:user, user_id, {:get, self(), {:user}}}
     receive do
       {:error, error} -> Logger.info("ERROR IS HERE #{error}")
       user_data ->
-        Logger.info("happens")
+        #Logger.info("get_upd user_data")
         {rooms, pics} = user_data.rooms |> get_all_rooms([], [])
+        IO.inspect rooms, label: "get_upd rooms:"
         user_data_rooms = user_data |> Map.replace!(:rooms, rooms)
         user_data_rooms_json = Jason.encode!(user_data_rooms)
         {user_data_rooms_json, pics}
@@ -480,10 +502,12 @@ defmodule Serv do
 
   def get_all_rooms([], rooms, pics), do: {rooms, pics}
   def get_all_rooms([map | rest], rooms, pics) do
+    Logger.info "############## get_all_rooms: #{map.room_id}"
     send :memo_mux, {:room, map.room_id, {:get, self(), {:room}}}
     receive do
       {:error, error} -> Logger.info(error)
       room_data ->
+        IO.inspect room_data
         pics = [%{:room_id => map.room_id, :pic => room_data.icon} | pics]
         pics = room_data.quest_pics ++ pics
         room_data = room_data |> Map.delete(:icon) |> Map.delete(:quest_pics)
@@ -495,6 +519,7 @@ defmodule Serv do
     write_line("200 ", socket)
     write_line(json, socket)
     write_line("\r\n", socket)
+    IO.inspect(json, label: "sent JSON")
     send_all_pics(pics, socket)
   end
 

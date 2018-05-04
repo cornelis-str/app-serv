@@ -1,3 +1,4 @@
+
 defmodule Memo do
   require Logger
 
@@ -42,6 +43,7 @@ defmodule Memo do
   end
 
   def memo_mux(user_pid_list, room_pid_list) do
+    Logger.info "memo_mux"
     receive do
       {:user, user_id, action = {method, thing}} ->
 
@@ -67,10 +69,11 @@ defmodule Memo do
         case user_pid_list[user_id] do
 
           nil ->
-            IO.inspect method
+            IO.inspect method, label: ":user user_pid_list nil"
             Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻"
 
           pid ->
+            Logger.info ":user #{user_id} #{method}"
             #IO.inspect method
             send pid, action
             memo_mux user_pid_list, room_pid_list
@@ -80,16 +83,39 @@ defmodule Memo do
         #Logger.info ":room :add"
         # Ingen felhantering, går troligen att spawna oändligt med processer
         new_room_pid_list = room_pid_list |> Map.put(room_id, spawn(fn -> room_data_handler(thing) end))
-        #send room_pid_list[room_id], action
         memo_mux user_pid_list, new_room_pid_list
+        Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻ depricated, read the LOGS DAMNIT!!!"
+
+        #send room_pid_list[room_id], action
+
 
       {:room, room_id, action = {method, _, _}} ->
 
         case room_pid_list[room_id] do
 
           nil ->
-            IO.inspect method
-            Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻"
+            Logger.info " ########### Creating room room_id: #{room_id}"
+            [owner_name, room_name] = room_id |> String.split("@")
+
+            IO.inspect owner_name, label: "creating room owner_name"
+            IO.inspect room_name, label: "creating room room_name"
+
+            new_room = %{
+            :owner => owner_name,
+            :name => room_name,
+            :topic => nil,
+            :icon => nil,
+            :users => [],
+            :quests => [],
+            :quest_pics => []
+            }
+
+            new_room_pid_list = room_pid_list |> Map.put(room_id, spawn(fn -> room_data_handler(new_room) end))
+            Logger.info "room created"
+            send :memo_mux, {:user, owner_name, {:set, self(), {:rooms, room_id, :add}}}
+            Logger.info "adding room to user"
+            memo_mux user_pid_list, new_room_pid_list
+            IO.inspect method, label: ":room room_pid_list nil"
 
           room_pid ->
             send room_pid, action
@@ -120,6 +146,8 @@ defmodule Memo do
   end
 
   def user_data_handler(user_data) do
+    Logger.info "user_data_handler"
+    IO.inspect user_data, limit: :infinity
     receive do
       ### Getters ###
       {:get, pid, {:user}} ->
@@ -172,7 +200,7 @@ defmodule Memo do
         user_data_handler(new_user_data)
 
       {:set, pid, {:rooms, room_id, how}} ->
-        #Logger.info ":set rooms"
+        Logger.info ":set rooms"
         new = set_users_rooms user_data, how, room_id, pid
         #IO.inspect new, limit: :infinity
         user_data_handler(new)
@@ -192,7 +220,7 @@ defmodule Memo do
     receive do
       ### Getters ###
       {:get, pid, {:room}} ->
-        #Logger.info ":get :room"
+        Logger.info ":get :room"
         send pid, room_data
         room_data_handler(room_data)
 
