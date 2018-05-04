@@ -270,10 +270,12 @@ defmodule Memo do
   def notif_member?(list_of_notifs, notif = %{:submitted => %{:from => _, :to => _, :quest_id => _}, :pic => _, :string => _}) do
     list_of_notifs
     |> Enum.find_index(
-      fn(%{:submitted => %{:from => from, :to => to, :quest_id => quest_id}, :pic => _, :string => _}) ->
-        from == notif.submitted.from
-        && to == notif.submitted.to
-        && quest_id == notif.submitted.quest_id
+      fn(x) ->
+        case x do
+          %{:submitted => %{:from => from, :to => to, :quest_id => id}, :pic => _, :string => _} ->
+            from == notif.submitted.from && to == notif.submitted.to && id == notif.submitted.quest_id
+          _ -> false
+        end
       end
     )
   end
@@ -392,7 +394,7 @@ defmodule Memo do
 
   def set_quest(room_data, how, quest_id, quest, pid) do
     room_data.quests
-    |> Enum.find_index(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
+    |> Enum.find_index(fn(%{:quest_id => x, :quest => _}) -> x == quest_id end)
     |> case do
       nil when how == :add ->
         #Lägg till
@@ -413,7 +415,7 @@ defmodule Memo do
 
   def set_quest_pics(room_data, how, quest_pic_id, pic, pid) do
     room_data.quest_pics
-    |> Enum.find_index(fn(%{:quest_pic_id => ^quest_pic_id, :quest_pic => _}) -> true end)
+    |> Enum.find_index(fn(%{:quest_pic_id => x, :quest_pic => _}) -> x == quest_pic_id end)
     |> case do
       nil when how == :add ->
         room_data

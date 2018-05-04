@@ -440,7 +440,7 @@ defmodule Serv do
     # TODO: berätta för Marcus:
     # Hur vet användaren att den klarat questen. Förslag på datastruktur: {:notifs, %{:accepted => {:quest_id, quest_id}}, behövs inget annat.
     # Skickas endast internt/tas emot, skickas inte i av klient
-    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:accepted => {:quest_id, quest_id}}, :del}}}
+    send :memo_mux, {:user, user_id, {:set, self(), {:notifs, %{:accepted => %{:quest_id => quest_id}}, :del}}}
   end
 
   # :friends => [{:friend, %{:user_id => user_id, :friends => [{:user_id, amanda}, {:user_id, marcus}]}}, etc...]
