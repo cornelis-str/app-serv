@@ -29,6 +29,8 @@ defmodule Tests do
     create_user_get_user_test()
     friend_request = %{:friend_request => %{:from => "lolcat", :to => "doggo"}}
     room_invite = %{:room_invite => %{:room => [], :to => "doggo"}}
+    quest_invite =
+      %{:submitted => %{:from => "lolcat", :to => "doggo", :quest_id => "Run Damn It"}, :pic => nil, :string => "hi"}
 
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, friend_request, :add}}}
     send :memo_mux, {:user, "plop", {:get, self(), {:notifs}}}
@@ -47,6 +49,8 @@ defmodule Tests do
         Logger.info "notifs should have 2 notifs"
         IO.inspect t, limit: :infinity
     end
+
+    send :memo_mux, {:user, "plop", {:set, self(), {:notifs, quest_invite, :add}}}
 
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, friend_request, :del}}}
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, room_invite, :del}}}
@@ -162,7 +166,7 @@ defmodule Tests do
 
     {user_data, _} = get_upd("plop")
 
-    IO.puts user_data
+    user_data
   end
 
   defp get_upd(user_id) do

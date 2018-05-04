@@ -7,7 +7,7 @@ defmodule Memo do
   # :user_id => lolcat,
   # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}},
   # %{:submitted => %{:from => user_id, :to => user_id, :quest_id}, :pic => bytearray|nil, :string => str|nil}, etc...],
-  # :friends => [{:friend, %{:user_id => user_id, :friends => [{:user_id, amanda}, {:user_id, marcus}]}}, etc...],
+  # :friends => [%{:friend, %{:user_id => user_id, :friends => [%{:user_id, amanda}, %{:user_id, marcus}]}}, etc...],
   # :rooms => [%{:room_id => room_id}, etc...],
   # :hasNew => false | true
   # }
@@ -16,7 +16,7 @@ defmodule Memo do
   # user_data_update = %{
   # :user_id => lolcat,
   # :notifs => [%{:friend_request => %{:from => lolcat, :to => doggo}}, %{:room_invite => %{:room => [], :to => lolcat}}, etc...],
-  # :friends => [{:friend, %{:user_id => user_id, :friends => []}}, etc...],
+  # :friends => [%{:friend, %{:user_id => user_id, :friends => []}}, etc...],
   # :rooms => [%{:room_id => room_id, :room => room_data}, etc...],
   # }
 
@@ -26,7 +26,7 @@ defmodule Memo do
   # :name => "Super Duper Room",
   # :topic => "Underground Bayblade Cabal",
   # :icon => <<ByteArray>>
-  # :users => [{:user, user_id}, etc...]
+  # :users => [%{:user, user_id}, etc...]
   # :quests => [%{:quest_id => quest_id, :quest => <JsonString>}]
   # :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
   # }
@@ -243,28 +243,41 @@ defmodule Memo do
   ### USER_DATA_HANDLER SETTERS ###
   def set_notif(user_data, how, notif, pid) do
     user_data.notifs
-    |> Enum.member?(notif)
+    |> notif_member?(notif)
     |> case do
 
-      true when how == :add ->
-        #Logger.info "true, add"
-        user_data
-
-      true when how == :del ->
-        #Logger.info "true, del"
-        user_data
-        |> Map.replace!(:notifs, user_data.notifs |> List.delete(notif))
-
-      false when how == :add ->
+      nil when how == :add ->
         #Logger.info "false, add"
         user_data
         |> Map.replace!(:notifs, [notif | user_data.notifs])
 
-      false when how == :del ->
+      nil when how == :del ->
         #Logger.info "false, del"
         Logger.info {:memo, "Can't delete 'nothing'"}
+
+      index when how == :add ->
+        #Logger.info "true, add"
+        user_data
+
+      index when how == :del ->
+        #Logger.info "true, del"
+        user_data
+        |> Map.replace!(:notifs, user_data.notifs |> List.delete_at(index))
+
     end
   end
+
+  def notif_member?(list_of_notifs, notif = %{:submitted => %{:from => _, :to => _, :quest_id => _}, :pic => _, :string => _}) do
+    list_of_notifs
+    |> Enum.find_index(
+      fn(%{:submitted => %{:from => from, :to => to, :quest_id => quest_id}, :pic => _, :string => _}) ->
+        from == notif.submitted.from
+        && to == notif.submitted.to
+        && quest_id == notif.submitted.quest_id
+      end
+    )
+  end
+  def notif_member?(list_of_notifs, notif), do: list_of_notifs |> Enum.find_index(fn(x) -> x == notif end)
 
   def set_friend(user_data, how, user_id, friend, pid) do
     #Logger.info "set_friend"
