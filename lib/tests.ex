@@ -51,9 +51,17 @@ defmodule Tests do
     end
 
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, quest_invite, :add}}}
+    send :memo_mux, {:user, "plop", {:get, self(), {:notifs}}}
+
+    receive do
+      t ->
+        Logger.info "notifs should have 3 notifs"
+        IO.inspect t, limit: :infinity
+    end
 
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, friend_request, :del}}}
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, room_invite, :del}}}
+    send :memo_mux, {:user, "plop", {:set, self(), {:notifs, quest_invite, :del}}}
     send :memo_mux, {:user, "plop", {:get, self(), {:notifs}}}
 
     receive do
