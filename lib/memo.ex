@@ -26,7 +26,7 @@ defmodule Memo do
   # :name => "Super Duper Room",
   # :topic => "Underground Bayblade Cabal",
   # :icon => <<ByteArray>>
-  # :users => [{:user, user_id}, etc...]
+  # :users => [%{:user, user_id}, etc...]
   # :quests => [%{:quest_id => quest_id, :quest => <JsonString>}]
   # :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
   # }
