@@ -31,6 +31,7 @@ defmodule Tests do
     room_invite = %{:room_invite => %{:room => [], :to => "doggo"}}
     quest_invite =
       %{:submitted => %{:from => "lolcat", :to => "doggo", :quest_id => "Run Damn It"}, :pic => "x", :string => "hi"}
+    quest_accept = %{:accepted => %{:quest_id => "quest_id"}}
 
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, friend_request, :add}}}
     send :memo_mux, {:user, "plop", {:get, self(), {:notifs}}}
@@ -59,9 +60,19 @@ defmodule Tests do
         IO.inspect t, limit: :infinity
     end
 
+    send :memo_mux, {:user, "plop", {:set, self(), {:notifs, quest_accept, :add}}}
+    send :memo_mux, {:user, "plop", {:get, self(), {:notifs}}}
+
+    receive do
+      t ->
+        Logger.info "notifs should have 4 notifs"
+        IO.inspect t, limit: :infinity
+    end
+
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, friend_request, :del}}}
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, room_invite, :del}}}
     send :memo_mux, {:user, "plop", {:set, self(), {:notifs, quest_invite, :del}}}
+    send :memo_mux, {:user, "plop", {:set, self(), {:notifs, quest_accept, :del}}}
     send :memo_mux, {:user, "plop", {:get, self(), {:notifs}}}
 
     receive do
