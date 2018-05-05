@@ -27,9 +27,7 @@ defmodule Memo_room do
         |> data_handler()
 
       {:set, pid, {:room, room_id, :del}} ->
-        #send pid, {:memo, "deleting room #{room_id}"}
-        #Implementera kod som tar bort rummet från alla dess medlemmar
-        :ok
+        del_room(room_data.users, room_id)
 
       {:set, pid, {:quest, quest_id, quest, how}} ->
         set_quest room_data, how, quest_id, quest, pid
@@ -101,6 +99,12 @@ defmodule Memo_room do
 
       _ -> send pid, {:memo, "SYNTAX ERROR"}
     end
+  end
+
+  def del_room([], _), do: :ok
+  def del_room([user_id | t], room_id) do
+    send :memo_mux, {:user, user_id, {:set, self(), {:room, room_id, :del}}}
+    del_room(t, room_id)
   end
 
   def set_quest(room_data, how, quest_id, quest, pid) do

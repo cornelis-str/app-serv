@@ -48,14 +48,14 @@ defmodule Memo_user do
         #IO.inspect t, limit: :infinity
         data_handler(t)
 
-      {:set, pid, {:friends, user_id, value, how}} ->
-        #Logger.info ":set friends"
+      {:set, pid, {:friend, user_id, value, how}} ->
+        #Logger.info ":set friend"
         new_user_data = set_friend user_data, how, user_id, value, pid
         #IO.inspect new_user_data, limit: :infinity
         data_handler(new_user_data)
 
-      {:set, pid, {:rooms, room_id, how}} ->
-        Logger.info ":set rooms"
+      {:set, pid, {:room, room_id, how}} ->
+        Logger.info ":set room"
         new = set_users_rooms user_data, how, room_id, pid
         #IO.inspect new, limit: :infinity
         data_handler(new)
