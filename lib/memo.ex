@@ -3,7 +3,7 @@ defmodule Memo do
 
   # Använda Elixirs inbyggda documenterings format/system istället för
   # denna vägg med oformaterad test?
-  
+
   # TODO: Skriv upp meddelande-syntax för alla operationer som memo_mux ska
   # kunna godkänna.
 

@@ -6,35 +6,35 @@ defmodule Memo.room do
       {:get, pid, {:room}} ->
         Logger.info ":get :room"
         send pid, room_data
-        room_data_handler(room_data)
+        data_handler(room_data)
 
       {:get, pid, {:room, room_part}} ->
         get_room room_data, room_part, pid
-        room_data_handler(room_data)
+        data_handler(room_data)
 
       {:get, pid, {:quest, quest_id}} ->
         get_quest room_data, quest_id, pid
-        room_data_handler(room_data)
+        data_handler(room_data)
 
       {:get, pid, {:quest_pic, resource_id}} ->
         get_quest_pics room_data, resource_id, pid
-        room_data_handler(room_data)
+        data_handler(room_data)
 
       ### Setters ###
       {:set, pid, {:room, which_room_part, part_to_add, how}} ->
         set_room room_data, how, which_room_part, part_to_add, pid
-        |> room_data_handler()
+        |> data_handler()
 
       {:set, pid, {:room, room_id, :del}} ->
         send pid, {:memo, "deleting room #{room_id}"}
 
       {:set, pid, {:quest, quest_id, quest, how}} ->
         set_quest room_data, how, quest_id, quest, pid
-        |> room_data_handler()
+        |> data_handler()
 
       {:set, pid, {:quest_pic, resource_id, resource, how}} ->
         set_quest_pics room_data, how, resource_id, resource, pid
-        |> room_data_handler()
+        |> data_handler()
     end
   end
 
