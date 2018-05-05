@@ -7,124 +7,20 @@ defmodule Memo do
   # Memos interna struktur
 
   @moduledoc """
-  Memo är föräldramodulen för serverns minnsestruktur.
+  Föräldramodulen för serverns minnsestruktur.
   Detta är modulen som håller koll på alla data_handlers 
   vilka är de som håller den faktiska informationen.
 
-  Memo inehåller främst memo_mux vilken skickar vidare 
+  Innehåller främst memo_mux vilken skickar vidare 
   meddelanden dit de ska.
 
-  Memo innehåller även funktioner för att spara data till
-  disk.
-
-  Datastrukturer:
-
-  Datastruktur i Memo.user
-      user_data = %{
-      :user_id => lolcat,
-      :notifs => [
-        %{:friend_request => %{:from => lolcat, :to => doggo}}, 
-        %{:room_invite => %{:room => [], :to => lolcat}},
-        %{:submitted => %{:from => user_id, :to => user_id, :quest_id}, :pic => bytearray|nil, :string => str|nil}, etc...],
-      :friends => [
-        %{:friend, %{:user_id => user_id, :friends => [%{:user_id, amanda}, %{:user_id, marcus}]}}, 
-        etc...],
-      :rooms => [
-        %{:room_id => room_id}, 
-        etc...],
-      :hasNew => false | true
-      }
-
-  Versionen av user_data som skickas tillbaks till klienten
-      user_data_update = %{
-      :user_id => lolcat,
-      :notifs => [
-          %{:friend_request => %{:from => lolcat, :to => doggo}}, 
-          %{:room_invite => %{:room => [], :to => lolcat}}, 
-          %{:submitted => %{:from => user_id, :to => user_id, :quest_id}, :pic => bytearray|nil, :string => str|nil},
-          etc...],
-      :friends => [%{:friend, %{:user_id => user_id, :friends => []}}, etc...],
-      :rooms => [%{:room_id => room_id, :room => room_data}, etc...],
-      }
-
-  Datastruktur i Memo.room
-      room_data = %{
-      :owner => "Kor-Nelzizandaaaaaa",
-      :name => "Super Duper Room",
-      :topic => "Underground Bayblade Cabal",
-      :icon => <<ByteArray>>,
-      :users => [
-          %{:user, user_id}, 
-          etc...],
-      :quests => [%{:quest_id => quest_id, :quest => JsonString}],
-      :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
-      }
+  Innehåller även funktioner för att spara data till
+  disk. (Ej implemeterat än)
   """
 
   @doc """
   Startar memo_mux och registrerar processen för enkel sändning av meddelanden.
-
-  # Meddelande format för memo_mux:
-  ## Skapa användare
-      send :memo_mux, {:user, user_id, {:create_user, user_data}}
-
-  ## Hämta användare
-      send :memo_mux, {:user, user_id, {:get, pid_of_sender, {:user}}}
-
-  ## Ändra username
-      send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:user_id, new_username}}}
-
-  ## Hämta username
-      send :memo_mux, {:user, user_id, {:get, pid_of_sender, {:user_id}}}
-
-  ## Skapa notifikation
-      send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:notifs, notif, :add}}}
-      
-  ### Notifikations (notif) typer
-  #### Friend Request
-      %{:friend_request => %{:from => user_id_0, :to => user_id_1}}
-  
-  #### Room Invite
-      %{:room_invite => %{:room_id => room_id, :to => user_id}}
-      
-  #### Quest Invite
-      %{
-      :submitted => %{:from => user_id_0, :to => user_id_1, :quest_id => quest_id}, 
-      :pic => <<ByteArray>>, 
-      :string => string
-      }
-  
-  ## Ta bort notifikation
-      send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:notifs, notif, :del}}}
-
-  ## Hämta alla notifikationer
-      send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:notifs}}}
-
-  ## Lägg till en vän
-      send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:friend, friends_user_id, friend_data, :add}}}
-
-  ### Friend data
-      %{:friend, %{
-        :user_id => friends_user_id, 
-        :friends => [
-          %{:user_id => user_id}
-          ]
-        }
-      }
-
-  ## Ta bort en vän
-      send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:friend, friends_user_id, :del}}}
-
-  ## Hämta en vän
-      send :memo_mux, {:user, user_id, {:get, pid_of_sender, {:friend, friends_user_id}}}
-
-  ## Hämta vänlista
-      send :memo_mux, {:user, user_id, {:get, pid_of_sender, {:friends}}}
-
-  ## Lägg till rum
-      
-  """
-  
+  """ 
   def start() do
     {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> memo_mux(%{}, %{}) end)
     Process.register(pid, :memo_mux)

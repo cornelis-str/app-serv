@@ -27,7 +27,9 @@ defmodule Memo_room do
         |> data_handler()
 
       {:set, pid, {:room, room_id, :del}} ->
-        send pid, {:memo, "deleting room #{room_id}"}
+        #send pid, {:memo, "deleting room #{room_id}"}
+        #Implementera kod som tar bort rummet från alla dess medlemmar
+        :ok
 
       {:set, pid, {:quest, quest_id, quest, how}} ->
         set_quest room_data, how, quest_id, quest, pid
@@ -55,12 +57,12 @@ defmodule Memo_room do
 
   def get_quest(room_data, quest_id, pid) do
     send pid, room_data.quests
-    |> Enum.find(fn(%{:quest_id => ^quest_id, :quest => _}) -> true end)
+    |> Enum.find(fn(%{:quest_id => x, :quest => _}) -> x == quest_id end)
   end
 
   def get_quest_pics(room_data, quest_pic_id, pid) do
     send pid, room_data.quest_pics
-    |> Enum.find(fn(%{:quest_pic_id => ^quest_pic_id, :pic => _}) -> true end)
+    |> Enum.find(fn(%{:quest_pic_id => x, :pic => _}) -> x == quest_pic_id end)
   end
 
   ### SETTERS ###
@@ -80,7 +82,7 @@ defmodule Memo_room do
 
       :users when how == :add ->
         room_data.users
-        |> Enum.find_index(fn(^part) -> true end)
+        |> Enum.find_index(fn(x) -> x == part end)
         |> case do
               nil ->
                 room_data
@@ -95,7 +97,7 @@ defmodule Memo_room do
         room_data
         |> Map.replace!(:users, room_data.users
         |> List.delete_at(room_data.users
-        |> Enum.find_index(fn(^part) -> true end)))
+        |> Enum.find_index(fn(x) -> x == part end)))
 
       _ -> send pid, {:memo, "SYNTAX ERROR"}
     end
