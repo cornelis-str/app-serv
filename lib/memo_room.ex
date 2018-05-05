@@ -1,4 +1,5 @@
-defmodule Memo.room do
+defmodule Memo_room do
+  require Logger
   # "how" can be :del or :add. With icons and text this is ignored.
   def data_handler(room_data) do
     receive do

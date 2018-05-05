@@ -1,4 +1,5 @@
-defmodule Memo.user do
+defmodule Memo_user do
+  require Logger
   def data_handler(user_data) do
     Logger.info "user_data_handler"
     IO.inspect user_data, limit: :infinity
