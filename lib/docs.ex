@@ -11,36 +11,36 @@ defmodule Docs do
         user_data = %{
         :user_id => user_id,
         :notifs => [
-          %{:friend_request => %{:from => user_id, :to => user_id_0}}, 
+          %{:friend_request => %{:from => user_id, :to => user_id_0}},
           %{:room_invite => %{:room_id => room_id, :to => user_id}},
-          %{:submitted => %{:from => user_id, :to => user_id, :quest_id}, 
-            :pic => <<ByteArray>> | nil, 
+          %{:submitted => %{:from => user_id, :to => user_id, :quest_id},
+            :pic => <<ByteArray>> | nil,
             :string => str|nil
-          }, 
+          },
           etc...
         ],
         :friends => [
           %{:friend, %{:user_id => user_id, :friends => [
-              %{:user_id => user_id}, 
+              %{:user_id => user_id},
               %{:user_id => user_id}
               ]
             }
-          }, 
+          },
           etc...],
         :rooms => [
-          %{:room_id => room_id}, 
+          %{:room_id => room_id},
           etc...],
-        :hasNew => false | true
+        :has_new => false | true
         }
 
 ## Versionen av user_data som skickas tillbaks till klienten:
         user_data_update = %{
         :user_id => lolcat,
         :notifs => [
-            %{:friend_request => %{:from => lolcat, :to => doggo}}, 
-            %{:room_invite => %{:room => [], :to => lolcat}}, 
-            %{:submitted => %{:from => user_id, :to => user_id, :quest_id}, 
-              :pic => <<ByteArray>> | nil, 
+            %{:friend_request => %{:from => lolcat, :to => doggo}},
+            %{:room_invite => %{:room => [], :to => lolcat}},
+            %{:submitted => %{:from => user_id, :to => user_id, :quest_id},
+              :pic => <<ByteArray>> | nil,
               :string => str|nil
             },
           etc...
@@ -56,7 +56,7 @@ defmodule Docs do
         :topic => topic,
         :icon => <<ByteArray>>,
         :users => [
-            %{:user => user_id}, 
+            %{:user => user_id},
             etc...],
         :quests => [%{:quest_id => quest_id, :quest => JsonString}],
         :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
@@ -65,7 +65,7 @@ defmodule Docs do
 
 # Meddelande format för memo_mux:
 
-    
+
 ## Användarmeddelanden
 
 
@@ -83,21 +83,21 @@ defmodule Docs do
 
 ### Skapa notifikation:
       send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:notifs, notif, :add}}}
-      
+
 #### Notifikations (notif) typer
 ##### Friend Request:
         %{:friend_request => %{:from => user_id_0, :to => user_id_1}}
-  
+
 ##### Room Invite:
         %{:room_invite => %{:room_id => room_id, :to => user_id}}
-      
+
 ##### Quest Submission:
         %{
-        :submitted => %{:from => user_id_0, :to => user_id_1, :quest_id => quest_id}, 
-        :pic => <<ByteArray>>, 
+        :submitted => %{:from => user_id_0, :to => user_id_1, :quest_id => quest_id},
+        :pic => <<ByteArray>>,
         :string => string
         }
-  
+
 ### Ta bort notifikation:
 I :submitted kan man sätta :pic och :string till nil då dessa inte tittas på för indentifiering av notifikationen.
       send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:notifs, notif, :del}}}
@@ -110,7 +110,7 @@ I :submitted kan man sätta :pic och :string till nil då dessa inte tittas på 
 
 #### Friend data
         %{:friend, %{
-          :user_id => friends_user_id, 
+          :user_id => friends_user_id,
           :friends => [
             %{:user_id => user_id}
             ]
@@ -137,7 +137,7 @@ I :submitted kan man sätta :pic och :string till nil då dessa inte tittas på 
 
 ### Sätt has_new
       send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:has_new, true_or_false}}}
-      
+
 ### Hämta has_new
       send :memo_mux, {:user, user_id, {:get, pid_of_sender, {:has_new}}}
 
@@ -184,8 +184,8 @@ I :submitted kan man sätta :pic och :string till nil då dessa inte tittas på 
 
 ### Ta bort quest bild:
       send :memo_mux, {:room, room_id, {:get, pid_of_sender, {:quest_pic, resource_id, bild, :del}}}
-      
+
 ### Hämta quest bild:
       send :memo_mux, {:room, room_id, {:get, pid_of_sender, {:quest_pic, resource_id}}}
   """
-end 
+end

@@ -1,8 +1,7 @@
 defmodule Memo_user do
   require Logger
   def data_handler(user_data) do
-    Logger.info "user_data_handler"
-    IO.inspect user_data, limit: :infinity
+    IO.inspect user_data, [label: "Memo User:\n"]
     receive do
       ### Getters ###
       {:get, pid, {:user}} ->
@@ -14,9 +13,7 @@ defmodule Memo_user do
         data_handler(user_data)
 
       {:get, pid, {:notifs}} ->
-        #Logger.info ":get notifs"
         send pid, user_data.notifs
-        #IO.inspect user_data.notifs, limit: :infinity
         data_handler(user_data)
 
       {:get, pid, {:friends}} ->
@@ -37,30 +34,24 @@ defmodule Memo_user do
         data_handler(user_data)
 
       ### Setters ###
-      {:set, pid, {:user_id, value}} ->
+      {:set, _, {:user_id, value}} ->
         user_data
         |> Map.put(:user_id, value)
         |> data_handler()
 
       {:set, pid, {:notifs, value, how}} ->
-        #Logger.info ":set notifs"
-        t = set_notif user_data, how, value, pid
-        #IO.inspect t, limit: :infinity
-        data_handler(t)
+        set_notif(user_data, how, value, pid)
+        |> data_handler()
 
       {:set, pid, {:friend, user_id, value, how}} ->
-        #Logger.info ":set friend"
-        new_user_data = set_friend user_data, how, user_id, value, pid
-        #IO.inspect new_user_data, limit: :infinity
-        data_handler(new_user_data)
+        set_friend(user_data, how, user_id, value, pid)
+        |> data_handler()
 
       {:set, pid, {:room, room_id, how}} ->
-        Logger.info ":set room"
-        new = set_users_rooms user_data, how, room_id, pid
-        #IO.inspect new, limit: :infinity
-        data_handler(new)
+        set_users_rooms(user_data, how, room_id, pid)
+        |> data_handler()
 
-      {:set, pid, {:has_new, value}} ->
+      {:set, _, {:has_new, value}} ->
         user_data
         |> Map.replace!(:has_new, value)
         |> data_handler()
@@ -85,7 +76,7 @@ defmodule Memo_user do
   end
 
   ### SETTERS ###
-  def set_notif(user_data, how, notif, pid) do
+  def set_notif(user_data, how, notif, _) do
     user_data.notifs
     |> notif_member?(notif)
     |> case do
@@ -99,7 +90,7 @@ defmodule Memo_user do
         #Logger.info "false, del"
         Logger.info {:memo, "Can't delete 'nothing'"}
 
-      index when how == :add ->
+      _ when how == :add ->
         #Logger.info "true, add"
         user_data
 
@@ -111,22 +102,22 @@ defmodule Memo_user do
     end
   end
 
-  defp notif_member?(list_of_notifs, notif = 
+  defp notif_member?(list_of_notifs, notif =
     %{:submitted => %{:from => _, :to => _, :quest_id => _}, :pic => _, :string => _}) do
     list_of_notifs
     |> Enum.find_index(
       fn(x) ->
         case x do
           %{:submitted => %{:from => from, :to => to, :quest_id => id}, :pic => _, :string => _} ->
-            from == notif.submitted.from && 
-              to == notif.submitted.to && 
+            from == notif.submitted.from &&
+              to == notif.submitted.to &&
                 id == notif.submitted.quest_id
           _ -> false
         end
       end
     )
   end
-  defp notif_member?(list_of_notifs, notif) do 
+  defp notif_member?(list_of_notifs, notif) do
     list_of_notifs |> Enum.find_index(fn(x) -> x == notif end)
   end
 

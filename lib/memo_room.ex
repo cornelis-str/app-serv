@@ -2,39 +2,39 @@ defmodule Memo_room do
   require Logger
   # "how" can be :del or :add. With icons and text this is ignored.
   def data_handler(room_data) do
+    IO.inspect room_data, [label: "Memo Room:\n"]
     receive do
       ### Getters ###
       {:get, pid, {:room}} ->
-        Logger.info ":get :room"
         send pid, room_data
         data_handler(room_data)
 
       {:get, pid, {:room, room_part}} ->
-        get_room room_data, room_part, pid
+        get_room(room_data, room_part, pid)
         data_handler(room_data)
 
       {:get, pid, {:quest, quest_id}} ->
-        get_quest room_data, quest_id, pid
+        get_quest(room_data, quest_id, pid)
         data_handler(room_data)
 
       {:get, pid, {:quest_pic, resource_id}} ->
-        get_quest_pics room_data, resource_id, pid
+        get_quest_pics(room_data, resource_id, pid)
         data_handler(room_data)
 
       ### Setters ###
       {:set, pid, {:room, which_room_part, part_to_add, how}} ->
-        set_room room_data, how, which_room_part, part_to_add, pid
+        set_room(room_data, how, which_room_part, part_to_add, pid)
         |> data_handler()
 
       {:set, pid, {:room, room_id, :del}} ->
         del_room(room_data.users, room_id)
 
       {:set, pid, {:quest, quest_id, quest, how}} ->
-        set_quest room_data, how, quest_id, quest, pid
+        set_quest(room_data, how, quest_id, quest, pid)
         |> data_handler()
 
       {:set, pid, {:quest_pic, resource_id, resource, how}} ->
-        set_quest_pics room_data, how, resource_id, resource, pid
+        set_quest_pics(room_data, how, resource_id, resource, pid)
         |> data_handler()
     end
   end

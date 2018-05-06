@@ -8,10 +8,10 @@ defmodule Memo do
 
   @moduledoc """
   Föräldramodulen för serverns minnsestruktur.
-  Detta är modulen som håller koll på alla data_handlers 
+  Detta är modulen som håller koll på alla data_handlers
   vilka är de som håller den faktiska informationen.
 
-  Innehåller främst memo_mux vilken skickar vidare 
+  Innehåller främst memo_mux vilken skickar vidare
   meddelanden dit de ska.
 
   Innehåller även funktioner för att spara data till
@@ -20,7 +20,7 @@ defmodule Memo do
 
   @doc """
   Startar memo_mux och registrerar processen för enkel sändning av meddelanden.
-  """ 
+  """
   def start() do
     {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> memo_mux(%{}, %{}) end)
     Process.register(pid, :memo_mux)
@@ -29,24 +29,18 @@ defmodule Memo do
   end
 
   defp memo_mux(user_pid_list, room_pid_list) do
-    Logger.info "memo_mux"
+    IO.inspect user_pid_list, label: "user_pid_list"
+    IO.inspect room_pid_list, label: "room_pid_list"
     receive do
-      {:user, user_id, action = {method, thing}} ->
-        case method do
-
-          :create_user ->
-            memo_mux create_user(user_id, thing, user_pid_list), room_pid_list
-
-          _ -> 
-            Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻"
-        end
+      {:user, user_id, {:create_user, user_data}} ->
+        create_user(user_id, user_data, user_pid_list)
+        |> memo_mux room_pid_list
 
       {:user, user_id, action = {method, _, _}} ->
         case user_pid_list[user_id] do
 
           nil ->
-            IO.inspect method, label: ":user user_pid_list nil"
-            Logger.info "(╯ರ ~ ರ）╯︵ ┻━┻"
+            IO.inspect method, label: "No #{user_id} in user_pid_list (╯ರ ~ ರ）╯︵ ┻━┻"
 
           pid ->
             Logger.info ":user #{user_id} #{method}"
@@ -59,8 +53,11 @@ defmodule Memo do
         case room_pid_list[room_id] do
 
           nil ->
-           memo_mux user_pid_list, create_room(room_id, room_pid_list)
-          
+            new_room_pid_list = create_room(room_id, room_pid_list)
+            IO.inspect new_room_pid_list, label: "new_room_pid_list"
+            send new_room_pid_list[room_id], action
+            memo_mux user_pid_list, new_room_pid_list
+
           room_pid ->
             send room_pid, action
             memo_mux user_pid_list, room_pid_list
@@ -69,26 +66,19 @@ defmodule Memo do
       {:quit} ->
         quit(user_pid_list, room_pid_list)
         Logger.info "memo_mux: Bye"
-      
+
       catch_all ->
-        IO.inspect catch_all, limit: :infinity
+        IO.inspect catch_all, [limit: :infinity, label: "Memo_mux catch_all"]
         memo_mux(user_pid_list, room_pid_list)
     end
   end
 
-  def create_user(id, user_data, pid_list) do 
-    #IO.inspect thing, limit: :infinity
-    pid_list
-    |> Map.put(id, spawn fn -> Memo_user.data_handler(user_data) end)
-    #IO.inspect new_user_pid_list, limit: :infinity
+  def create_user(id, user_data, pid_list) do
+    pid_list |> Map.put(id, spawn fn -> Memo_user.data_handler(user_data) end)
   end
 
   def create_room(id, pid_list) do
-    Logger.info " ########### Creating room room_id: #{id}"
     [owner_name, room_name] = id |> String.split("@")
-
-    #IO.inspect owner_name, label: "creating room owner_name"
-    #IO.inspect room_name, label: "creating room room_name"
 
     new_room = %{
       :owner => owner_name,
@@ -99,15 +89,12 @@ defmodule Memo do
       :quests => [],
       :quest_pics => []
     }
-    
-    send :memo_mux, {:user, owner_name, {:set, self(), {:rooms, id, :add}}}
-     
-    pid_list 
-    |> Map.put(id, spawn(fn -> Memo_room.data_handler(new_room) end))
 
-    Logger.info "#{id} room created"
+    send :memo_mux, {:user, owner_name, {:set, self(), {:rooms, id, :add}}}
+
+    pid_list |> Map.put(id, spawn(fn -> Memo_room.data_handler(new_room) end))
   end
-  
+
   def quit(user_pid_list, room_pid_list) do
     # skicka :save och :quit till alla user_data_handler processer
     # ska finnas ett sätt att automatiskt stänga av alla processer i

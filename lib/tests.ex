@@ -210,18 +210,8 @@ defmodule Tests do
   #################################
 
   def create_room_test do
-    room_data = %{
-    :owner => "Kor-Nelzizandaaaaaa",
-    :name => "room",
-    :topic => "Underground Bayblade Cabal",
-    :icon => nil,
-    :users => [],
-    :quests => [],
-    :quest_pics => []
-    }
-
-    send :memo_mux, {:room, "Kor-Nelzizandaaaaaa@room", {:add, room_data}}
-    send :memo_mux, {:room, "Kor-Nelzizandaaaaaa@room", {:get, self(), {:room}}}
+    send :memo_mux, {:room, "lolcat@room", {:set, self(), {:room, :owner, "lolcat", :add}}}
+    send :memo_mux, {:room, "lolcat@room", {:get, self(), {:room}}}
 
     receive do
       t ->
@@ -230,28 +220,10 @@ defmodule Tests do
   end
 
   def create_rooms_full_user_test do
-    room_data = %{
-    :owner => "Kor-Nelzizandaaaaaa",
-    :name => "room",
-    :topic => "Underground Bayblade Cabal",
-    :icon => nil,
-    :users => [],
-    :quests => [],
-    :quest_pics => []
-    }
+    todd_topic = "Getting rid of the queen(s)"
+    send :memo_mux, {:room, "Todd@Best Hive Ever!!!", {:set, self(), {:room, :topic, todd_topic, :add}}}
 
-    send :memo_mux, {:room, "Kor-Nelzizandaaaaaa@room", {:add, room_data}}
-
-    room_data = %{
-    :owner => "Kor-Nelzizandaaaaaa",
-    :name => "another room",
-    :topic => "Underground Bayblade Cabal",
-    :icon => nil,
-    :users => [],
-    :quests => [],
-    :quest_pics => []
-    }
-
-    send :memo_mux, {:room, "Kor-Nelzizandaaaaaa@another room", {:add, room_data}}
+    rodney_topic = "I can't reconfigure the whole gate network in 5 min!"
+    send :memo_mux, {:room, "Rodney@Atlantis Mensa", {:set, self(), {:room, :topic, rodney_topic, :add}}}
   end
 end
