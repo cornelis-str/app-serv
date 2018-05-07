@@ -151,7 +151,7 @@ defmodule Serv do
 
   # <picID> <byte_len> (sendok) <byte[]>
   defp put_pic_req(str, socket) do
-    [pic_id, len] = str |> String.split(" ")
+    [pic_id, len] = str |> String.split(" len:")
     IO.inspect(pic_id, label: "pic_id")
     IO.inspect(len, label: "pic_len")
 
@@ -223,7 +223,7 @@ defmodule Serv do
     [id, rid | _] = str |> String.split(" ")
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
-    IO.inspect decoded, label: "decoded json"
+    # IO.inspect decoded, label: "decoded json"
 
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
@@ -241,7 +241,7 @@ defmodule Serv do
         IO.inspect room_id, label: "QUEST room_id"
         IO.inspect quest_id, label: "QUEST quest_id"
         IO.inspect json, label: "QUEST json"
-        send :memo_mux, {:room, room_id, {:set, self(), {:quest, quest_id, json}}}
+        send :memo_mux, {:room, room_id, {:set, self(), {:quest, quest_id, json, :add}}}
     end
   end
 

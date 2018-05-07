@@ -113,7 +113,7 @@ defmodule Memo_room do
     |> case do
       nil when how == :add ->
         #Lägg till
-        room_data |> Map.replace!(:quests, [quest | room_data.quests])
+        room_data |> Map.replace!(:quests, [%{:quest_id => quest_id, :quest => quest} | room_data.quests])
 
       nil when how == :del ->
         Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
@@ -121,7 +121,7 @@ defmodule Memo_room do
       index when how == :add ->
         #Ersätt
         room_data
-        |> Map.replace!(:quest, [quest | room_data.quests |> List.delete_at(index)])
+        |> Map.replace!(:quests, [%{:quest_id => quest_id, :quest => quest} | room_data.quests |> List.delete_at(index)])
 
       _ when how == :del ->
         Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
