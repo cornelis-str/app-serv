@@ -117,6 +117,7 @@ defmodule Serv do
             end
         end
     end
+    write_line("201\r\n", socket)
   end
 
   def pos_create_user(user_id) do
@@ -165,7 +166,7 @@ defmodule Serv do
     Logger.info(Enum.count(pic_mess))
 
     # send ok
-    write_line("ok\r\n", socket)
+    write_line("201\r\n", socket)
     Logger.info("ok2 sent")
 
     # save
@@ -223,7 +224,7 @@ defmodule Serv do
     [id, rid | _] = str |> String.split(" ")
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
-    # IO.inspect decoded, label: "decoded json"
+    IO.inspect decoded, label: "decoded json"
 
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
@@ -243,6 +244,7 @@ defmodule Serv do
         IO.inspect json, label: "QUEST json"
         send :memo_mux, {:room, room_id, {:set, self(), {:quest, quest_id, json, :add}}}
     end
+    write_line("201\r\n", socket)
   end
 
   defp put_room(decoded, owner_id, room_name, socket) do
@@ -289,6 +291,7 @@ defmodule Serv do
             del_quest_subm(user_id, user_id2, quest_id, string, socket)
         end
     end
+    write_line("201\r\n", socket)
   end
 
   defp del_friend_req(userID, userID2, socket) do
@@ -354,6 +357,7 @@ defmodule Serv do
         get_upd(user) |> send_update(socket)
       [from, to] ->
         get_friend_req(from, to, socket)
+        write_line("201\r\n", socket)
       [from, to, third] ->
         [_, user_id] = from |> String.split(":")
         [_, user_id2] = to |> String.split(":")
@@ -361,8 +365,10 @@ defmodule Serv do
         |> case do
           ["GROUP", room_id] ->
             get_room_req(user_id, user_id2, room_id, socket)
+            write_line("201\r\n", socket)
           ["QUEST", quest_id | str] ->
             get_quest_subm(user_id, user_id2, quest_id, str, socket)
+            write_line("201\r\n", socket)
         end
       _ ->
         Logger.info("wtf")
