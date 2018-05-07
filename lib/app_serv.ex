@@ -161,7 +161,7 @@ defmodule Serv do
     Logger.info("ok sent")
 
     # Get pic
-    pic_mess = read_image([], len |> List.first() |> String.to_integer(), socket)
+    pic_mess = read_image([], len |> String.to_integer(), socket)
     Logger.info("got pic")
     Logger.info(Enum.count(pic_mess))
 
