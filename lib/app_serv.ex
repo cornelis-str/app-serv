@@ -172,14 +172,16 @@ defmodule Serv do
     # Logger.info("ok2 sent")
 
     # save
-    pic_mess |> Enum.reverse()
+    pic_mess
+    |> Enum.reverse()
     |> save_pic(pic_id)
   end
 
   # picID = IMAG@userName@roomName | @missionOwner@missionName@misisonPart@thingName
   # picID = SUBM@userName@roomName@missionOwner@missionName
   defp save_pic(pic, pic_id) do
-    pic_id |> String.split("@")
+    pic_id
+    |> String.split("@")
     |> case do
       ["IMAG", owner_id, room_id] ->
         # Spara rumbild

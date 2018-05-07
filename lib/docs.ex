@@ -183,7 +183,7 @@ I :submitted kan man sätta :pic och :string till nil då dessa inte tittas på 
       send :memo_mux, {:room, room_id, {:get, pid_of_sender, {:quest, quest_id}}}
 
 ### Lägg till quest bild:
-      send :memo_mux, {:room, room_id, {:get, pid_of_sender, {:quest_pic, resource_id, bild, :add}}}
+      send :memo_mux, {:room, room_id, {:set, pid_of_sender, {:quest_pic, resource_id, bild, :add}}}
 
 ### Ta bort quest bild:
       send :memo_mux, {:room, room_id, {:get, pid_of_sender, {:quest_pic, resource_id, bild, :del}}}
