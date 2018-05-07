@@ -65,9 +65,9 @@ defmodule Serv do
         |> case do
           {"PIC ", things} ->
             Logger.info "PUT PIC"
-            # Does room exist yet?
+            # thing = "id len"
             spawn fn -> put_pic_req(things, socket) end
-          
+
           _ ->
             Logger.info "PUT!"
             IO.inspect tail, limit: :infinity
@@ -97,7 +97,7 @@ defmodule Serv do
     |> case do
       ["ID", user_id] ->
         pos_create_user(user_id)
-    
+
       ["FROM", user_id] ->
         str |> String.split(" ")
         |> case do
@@ -120,10 +120,10 @@ defmodule Serv do
 
   def pos_create_user(user_id) do
     user = %{
-      :user_id => user_id, 
-      :notifs =>[], 
-      :friends => [], 
-      :rooms => [], 
+      :user_id => user_id,
+      :notifs =>[],
+      :friends => [],
+      :rooms => [],
       :has_new => false
       }
     send :memo_mux, {:user, user_id, {:create_user, user}}
@@ -150,8 +150,9 @@ defmodule Serv do
 
   # <picID> <byte_len> + <byte[]>
   defp put_pic_req(str, socket) do
-    #IO.inspect tail, limit: :infinity
     [pic_id, len] = str |> String.split(" ")
+    IO.inspect(pic_id, label: "pic_id")
+    IO.inspect(len, label: "pic_len")
 
     # send ok
     write_line("ok\r\n", socket)
@@ -223,7 +224,7 @@ defmodule Serv do
     [id, rid | _] = str |> String.split(" ")
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
-    
+
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
     |> case do
