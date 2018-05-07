@@ -11,10 +11,9 @@ defmodule Tests do
     }
 
     send :memo_mux, {:user, "plop", {:create_user, user}}
-    send :memo_mux, {:user, "plop", {:get, self(), {:user}}}
-    receive do
-      thing -> thing
-    end
+    #send :memo_mux, {:user, "plop", {:get, self(), {:user}}}
+    ##  thing -> thing
+    #end
   end
 
   def set_get_user_id_test do
@@ -210,13 +209,13 @@ defmodule Tests do
   #################################
 
   def create_room_test do
-    send :memo_mux, {:room, "lolcat@room", {:set, self(), {:room, :owner, "lolcat", :add}}}
-    send :memo_mux, {:room, "lolcat@room", {:get, self(), {:room}}}
+    send :memo_mux, {:room, "plop@room", {:set, self(), {:room, :owner, "plop", :add}}}
+    #send :memo_mux, {:room, "plop@room", {:get, self(), {:room}}}
 
-    receive do
-      t ->
-        IO.inspect t, [limit: :infinity, label: "A room"]
-    end
+    #receive do
+    #  t ->
+    #    IO.inspect t, [limit: :infinity, label: "A room"]
+    #end
   end
 
   def create_rooms_full_user_test do
