@@ -481,6 +481,7 @@ defmodule Serv do
         send_mess(picmap.pic, socket)
       {:ok, _} ->
         write_line("pic_len=#{length} pic_id=#{picmap.room_id} \r\n", socket)
+        # TODO: READLINE - OK MELLAN SKICKNINGAR
         send_mess(picmap.pic, socket)
     end
     send_all_pics(pics, socket)
