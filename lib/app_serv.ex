@@ -64,8 +64,7 @@ defmodule Serv do
         tail |> String.split_at(4)
         |> case do
           {"PIC ", things} ->
-            Logger.info "PUT PIC"
-            # thing = "id len"
+            # Does room exist yet?
             spawn fn -> put_pic_req(things, socket) end
 
           _ ->
@@ -159,7 +158,7 @@ defmodule Serv do
     Logger.info("ok sent")
 
     # Get pic
-    pic_mess = read_image([], len |> List.first() |> String.to_integer(), socket)
+    pic_mess = read_image([], String.to_integer(len), socket)
     Logger.info("got pic")
     Logger.info(Enum.count(pic_mess))
 
@@ -470,7 +469,7 @@ defmodule Serv do
       :error ->
         write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.quest_pic_id + "\r\n", socket)
         send_mess(picmap.pic, socket)
-      {:ok, :room_id} ->
+      {:ok, room_id} ->
         write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.room_id + "\r\n", socket)
         send_mess(picmap.pic, socket)
     end

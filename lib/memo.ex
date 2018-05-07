@@ -34,7 +34,7 @@ defmodule Memo do
     receive do
       {:user, user_id, {:create_user, user_data}} ->
         create_user(user_id, user_data, user_pid_list)
-        |> memo_mux room_pid_list
+        |> memo_mux(room_pid_list)
 
       {:user, user_id, action = {method, _, _}} ->
         case user_pid_list[user_id] do
