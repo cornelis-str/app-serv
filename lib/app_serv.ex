@@ -147,7 +147,7 @@ defmodule Serv do
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, quest_sub, :add}}}
   end
 
-  # <picID> <byte_len> + <byte[]>
+  # <picID> <byte_len> (sendok) <byte[]>
   defp put_pic_req(str, socket) do
     [pic_id, len] = str |> String.split(" ")
     IO.inspect(pic_id, label: "pic_id")
@@ -187,8 +187,6 @@ defmodule Serv do
         # memo_mux: {:room, room_id, action}
         # room_data_handler: {:set, pid, {:quest_pic, resource_id, resource, how}
         # data struktur :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
-        # TODO: kanske inte pic_id, kanske pic_id - "IMAG"
-        # TODO: pic_id = owner_id + room_name + quest_owner + quest_name + ?
         send :memo_mux, {:room, "#{owner_id}@#{room_id}",
           {:set, self(), {:quest_pic, pic_id, %{:quest_pic_id => pic_id, :pic => pic}, :add}}
         }
