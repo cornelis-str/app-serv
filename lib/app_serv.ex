@@ -69,7 +69,8 @@ defmodule Serv do
           {"PIC ", things} ->
             Logger.info("PUT PIC")
             # thing = "id len"
-            spawn(fn -> put_pic_req(things, socket) end)
+            # spawn fn -> put_pic_req(things, socket) end
+            put_pic_req(things, socket)
 
           _ ->
             Logger.info("PUT!")
@@ -84,8 +85,10 @@ defmodule Serv do
 
       # Skickar vidare info och startar process om PUT request
       "GET " ->
-        # Logger.info "GET"
-        spawn(fn -> get_req(tail, socket) end)
+        #Logger.info "GET"
+        spawn fn -> get_req(tail, socket) end
+      _ ->
+        IO.inspect mess, label: "SYNTAX ERROR (╯ರ ~ ರ）╯︵ ┻━┻"
     end
   end
 
@@ -175,11 +178,11 @@ defmodule Serv do
 
     # Get pic
     pic_mess = read_image([], String.to_integer(len), socket)
-    Logger.info("pic_mess lenght: #{Enum.count(pic_mess}"))
+    Logger.info("GOT PIC pic_mess lenght: #{Enum.count(pic_mess)}")
 
     # send ok
-      #write_line("201\r\n", socket)
-      #Logger.info("ok2 sent")
+    # write_line("201\r\n", socket)
+    # Logger.info("ok2 sent")
 
     # save
     pic_mess
@@ -195,19 +198,13 @@ defmodule Serv do
     |> case do
       ["IMAG", owner_id, room_id] ->
         # Spara rumbild
-        send(
-          :memo_mux,
-          {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :icon, pic, :add}}}
-        )
+        room_id = "#{owner_id}@#{room_id}"
+        send :memo_mux, {:room, room_id, {:set, self(), {:room, :icon, pic, :add}}}
 
       ["IMAG", owner_id, room_id, quest_owner, quest_id, quest_part_id] ->
         # Spara questbilder
-        # data struktur :quest_pics => [%{:quest_pic_id => quest_pic_id, :pic => <<ByteArray>>}]
-        send(
-          :memo_mux,
-          {:room, "#{owner_id}@#{room_id}",
-           {:set, self(), {:quest_pic, pic_id, %{:quest_pic_id => pic_id, :pic => pic}, :add}}}
-        )
+        room_id = "#{owner_id}@#{room_id}"
+        send :memo_mux, {:room, room_id, {:set, self(), {:quest_pic, pic_id, pic, :add}}}
 
       ["SUBM", owner_id, room_id, quest_owner, quest_id] ->
         # Submitted quest-pictures
@@ -227,8 +224,7 @@ defmodule Serv do
 
       # Nedan går endast igång om inget ovan gått igång
       true ->
-        Logger.info(len)
-
+        IO.inspect len, label: "read_image rest len"
         [read_bytes(socket, len) | mem]
         |> read_image(0, socket)
     end
@@ -545,19 +541,15 @@ defmodule Serv do
   defp send_all_pics([], socket), do: write_line("END\r\n", socket)
 
   defp send_all_pics([picmap | pics], socket) do
-    picmap
-    |> Map.fetch(:room_id)
+    length = (length(picmap.pic) - 1) * 1024 + byte_size(List.last(picmap.pic))
+    picmap |> Map.fetch(:room_id)
     |> case do
       :error ->
-        write_line(
-          "pic len=" + length(picmap.pic) + " pic_id:" + picmap.quest_pic_id + "\r\n",
-          socket
-        )
-
+        write_line("pic_len=#{length} pic_id=#{picmap.quest_pic_id} \r\n", socket)
         send_mess(picmap.pic, socket)
-
-      {:ok, :room_id} ->
-        write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.room_id + "\r\n", socket)
+      {:ok, _} ->
+        write_line("pic_len=#{length} pic_id=#{picmap.room_id} \r\n", socket)
+        # TODO: READLINE - OK MELLAN SKICKNINGAR
         send_mess(picmap.pic, socket)
     end
 

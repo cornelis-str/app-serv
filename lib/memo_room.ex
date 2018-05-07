@@ -162,11 +162,12 @@ defmodule Memo_room do
 
       index when how == :add ->
         room_data
-        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics |> List.delete_at(index)])
+        |> Map.replace!(:quest_pics, [%{:quest_pic_id => quest_pic_id, :quest_pic => pic} | room_data.quest_pics |> List.delete_at(index)])
 
       index when how == :del ->
         room_data
-        |> Map.replace!(:quest_pics, [pic | room_data.quest_pics |> List.delete_at(index)])
+        |> Map.replace!(:quest_pics, [%{:quest_pic_id => quest_pic_id, :quest_pic => pic} | room_data.quest_pics |> List.delete_at(index)])
+
     end
   end
 end
