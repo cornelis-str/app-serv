@@ -1,36 +1,38 @@
 defmodule Memo_user do
   require Logger
+
   def data_handler(user_data) do
-    IO.inspect user_data, [label: "Memo User:\n"]
+    IO.inspect(user_data, label: "Memo User:\n")
+
     receive do
       ### Getters ###
       {:get, pid, {:user}} ->
-        send pid, user_data
+        send(pid, user_data)
         data_handler(user_data)
 
       {:get, pid, {:user_id}} ->
-        send pid, user_data.user_id
+        send(pid, user_data.user_id)
         data_handler(user_data)
 
       {:get, pid, {:notifs}} ->
-        send pid, user_data.notifs
+        send(pid, user_data.notifs)
         data_handler(user_data)
 
       {:get, pid, {:friends}} ->
-        send pid, user_data.friends
+        send(pid, user_data.friends)
         data_handler(user_data)
 
       {:get, pid, {:friend, user_id}} ->
-        get_friend user_data, user_id, pid
+        get_friend(user_data, user_id, pid)
         data_handler(user_data)
 
-      {:get, pid,{:room_list}} ->
-        #Logger.info ":get rooms"
-        get_room_list user_data, pid
+      {:get, pid, {:room_list}} ->
+        # Logger.info ":get rooms"
+        get_room_list(user_data, pid)
         data_handler(user_data)
 
-      {:get, pid,{:has_new}} ->
-        send pid, user_data.has_new
+      {:get, pid, {:has_new}} ->
+        send(pid, user_data.has_new)
         data_handler(user_data)
 
       ### Setters ###
@@ -56,23 +58,29 @@ defmodule Memo_user do
         |> Map.replace!(:has_new, value)
         |> data_handler()
 
-      {:save, user_id} -> send :file_mux, {:save, {user_id, user_data}}
-      {:quit} -> :ok
+      {:save, user_id} ->
+        send(:file_mux, {:save, {user_id, user_data}})
+
+      {:quit} ->
+        :ok
     end
   end
 
   ### GETTERS ###
   def get_friend(user_data, user_id, pid) do
-    #Logger.info "get_friend"
-    friend = user_data.friends |> Enum.find(fn({:friend, %{:user_id => x, :friends => _}}) -> x == user_id end)
-    #IO.inspect friend, limit: :infinity
-    send pid, friend
+    # Logger.info "get_friend"
+    friend =
+      user_data.friends
+      |> Enum.find(fn {:friend, %{:user_id => x, :friends => _}} -> x == user_id end)
+
+    # IO.inspect friend, limit: :infinity
+    send(pid, friend)
   end
 
   def get_room_list(user_data, pid) do
-    #Logger.info "get_room_list"
-    #IO.inspect user_data.rooms
-    send pid, {:memo, user_data.rooms}
+    # Logger.info "get_room_list"
+    # IO.inspect user_data.rooms
+    send(pid, {:memo, user_data.rooms})
   end
 
   ### SETTERS ###
@@ -80,86 +88,86 @@ defmodule Memo_user do
     user_data.notifs
     |> notif_member?(notif)
     |> case do
-
       nil when how == :add ->
-        #Logger.info "false, add"
+        # Logger.info "false, add"
         user_data
         |> Map.replace!(:notifs, [notif | user_data.notifs])
 
       nil when how == :del ->
-        #Logger.info "false, del"
-        Logger.info {:memo, "Can't delete 'nothing'"}
+        # Logger.info "false, del"
+        Logger.info({:memo, "Can't delete 'nothing'"})
 
       _ when how == :add ->
-        #Logger.info "true, add"
+        # Logger.info "true, add"
         user_data
 
       index when how == :del ->
-        #Logger.info "true, del"
+        # Logger.info "true, del"
         user_data
         |> Map.replace!(:notifs, user_data.notifs |> List.delete_at(index))
-
     end
   end
 
-  defp notif_member?(list_of_notifs, notif =
-    %{:submitted => %{:from => _, :to => _, :quest_id => _}, :pic => _, :string => _}) do
+  defp notif_member?(
+         list_of_notifs,
+         notif = %{:submitted => %{:from => _, :to => _, :quest_id => _}, :pic => _, :string => _}
+       ) do
     list_of_notifs
-    |> Enum.find_index(
-      fn(x) ->
-        case x do
-          %{:submitted => %{:from => from, :to => to, :quest_id => id}, :pic => _, :string => _} ->
-            from == notif.submitted.from &&
-              to == notif.submitted.to &&
-                id == notif.submitted.quest_id
-          _ -> false
-        end
+    |> Enum.find_index(fn x ->
+      case x do
+        %{:submitted => %{:from => from, :to => to, :quest_id => id}, :pic => _, :string => _} ->
+          from == notif.submitted.from && to == notif.submitted.to &&
+            id == notif.submitted.quest_id
+
+        _ ->
+          false
       end
-    )
+    end)
   end
+
   defp notif_member?(list_of_notifs, notif) do
-    list_of_notifs |> Enum.find_index(fn(x) -> x == notif end)
+    list_of_notifs |> Enum.find_index(fn x -> x == notif end)
   end
 
   defp set_friend(user_data, how, user_id, friend, pid) do
-    #Logger.info "set_friend"
-    #IO.inspect user_data.friends, limit: :infinity
+    # Logger.info "set_friend"
+    # IO.inspect user_data.friends, limit: :infinity
     user_data.friends
-    |> Enum.find_index(fn(%{:friend => %{:user_id => x, :friends => _}}) -> x == user_id end)
+    |> Enum.find_index(fn %{:friend => %{:user_id => x, :friends => _}} -> x == user_id end)
     |> case do
       nil when how == :add ->
-        #Logger.info "nil add"
+        # Logger.info "nil add"
         user_data
         |> Map.replace!(:friends, [friend | user_data.friends])
 
       nil when how == :del ->
-        #Logger.info "nil del"
-        Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
+        # Logger.info "nil del"
+        Logger.info("#{pid}, {:memo, \"SYNTAX ERROR\"}")
 
       index when how == :add ->
-        #Logger.info "index add"
+        # Logger.info "index add"
         user_data
         |> Map.replace!(:friends, [friend | user_data.friends |> List.delete_at(index)])
 
       index when how == :del ->
-        #Logger.info "index del"
+        # Logger.info "index del"
         user_data
         |> Map.replace!(:friends, user_data.friends |> List.delete_at(index))
     end
   end
 
   defp set_users_rooms(user_data, how, room_id, pid) do
-    #Logger.info "set_users_rooms"
+    # Logger.info "set_users_rooms"
     user_data.rooms
-    |> Enum.find_index(fn(%{:room_id => x}) -> x == room_id end)
+    |> Enum.find_index(fn %{:room_id => x} -> x == room_id end)
     |> case do
       nil when how == :add ->
-        #Logger.info "nil add"
+        # Logger.info "nil add"
         user_data
         |> Map.replace!(:rooms, [%{:room_id => room_id} | user_data.rooms])
 
       nil when how == :del ->
-        Logger.info "#{pid}, {:memo, \"SYNTAX ERROR\"}"
+        Logger.info("#{pid}, {:memo, \"SYNTAX ERROR\"}")
 
       index when how == :del ->
         user_data
