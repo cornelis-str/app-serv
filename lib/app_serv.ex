@@ -407,9 +407,7 @@ defmodule Serv do
     quest_sub = %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => nil}
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, quest_sub, :del}}}
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, quest_sub, :del}}}
-    # TODO: berätta för Marcus:
-    # Hur vet användaren att den klarat questen. Förslag på datastruktur: {:notifs, %{:accepted => {:quest_id, quest_id}}, behövs inget annat.
-    # Skickas endast internt/tas emot, skickas inte i av klient
+    
     quest_accept = %{:accepted => %{:quest_id => quest_id}}
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, quest_accept, :del}}}
   end
