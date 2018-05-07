@@ -98,6 +98,9 @@ defmodule Docs do
         :string => string
         }
 
+##### Quest Accepted:
+        %{:accepted => %{:quest_id => quest_id}}
+
 ### Ta bort notifikation:
 I :submitted kan man sätta :pic och :string till nil då dessa inte tittas på för indentifiering av notifikationen.
       send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:notifs, notif, :del}}}
