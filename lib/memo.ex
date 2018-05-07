@@ -41,6 +41,7 @@ defmodule Memo do
 
           nil ->
             IO.inspect method, label: "No #{user_id} in user_pid_list (╯ರ ~ ರ）╯︵ ┻━┻"
+            memo_mux(user_pid_list, room_pid_list)
 
           pid ->
             Logger.info ":user #{user_id} #{method}"
