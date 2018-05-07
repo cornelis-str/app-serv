@@ -149,9 +149,9 @@ defmodule Serv do
 
   # <picID> <byte_len> + <byte[]>
   defp put_pic_req(str, socket) do
-    #IO.inspect tail, limit: :infinity
-    IO.inspect(str, label: "THIS IS PUT PIC REQ")
     [pic_id, len] = str |> String.split(" ")
+    IO.inspect(pic_id, label: "pic_id")
+    IO.inspect(len, label: "pic_len")
 
     # send ok
     write_line("ok\r\n", socket)
