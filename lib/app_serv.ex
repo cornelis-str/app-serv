@@ -170,20 +170,23 @@ defmodule Serv do
     Logger.info("ok2 sent")
 
     # save
-    pic_mess |> Enum.reverse()
+    pic_mess
+    |> Enum.reverse()
     |> save_pic(pic_id)
   end
 
   # picID = IMAG@userName@roomName | @missionOwner@missionName@misisonPart@thingName
   # picID = SUBM@userName@roomName@missionOwner@missionName
   defp save_pic(pic, pic_id) do
-    pic_id |> String.split("@")
+    pic_id
+    |> String.split("@")
     |> case do
       ["IMAG", owner_id, room_id] ->
         # Spara rumbild
         # memo_mux: {:room, room_id, action}
         # action som skickas till roomhandler: {:set, pid, {:room, which_room_part, part_to_add, how}}
         send :memo_mux, {:room, "#{owner_id}@#{room_id}", {:set, self(), {:room, :icon, pic, :add}}}
+
       ["IMAG", owner_id, room_id, quest_owner, quest_id, quest_part_id] ->
         # Spara questbilder
         # memo_mux -> room_data_handler -> set_quest_pics
