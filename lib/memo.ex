@@ -90,7 +90,7 @@ defmodule Memo do
       :quest_pics => []
     }
 
-    send :memo_mux, {:user, owner_name, {:set, self(), {:rooms, id, :add}}}
+    send :memo_mux, {:user, owner_name, {:set, self(), {:room, id, :add}}}
 
     pid_list |> Map.put(id, spawn(fn -> Memo_room.data_handler(new_room) end))
   end
