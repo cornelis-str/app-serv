@@ -150,9 +150,9 @@ defmodule Serv do
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, quest_sub, :add}}}
   end
 
-  # <picID> <byte_len> (sendok) <byte[]>
+  # <picID> len:<byte_len> (sendok) <byte[]>
   defp put_pic_req(str, socket) do
-    [pic_id, len] = str |> String.split(" len:")
+    [pic_id, len | _] = str |> String.split(" len:")
     IO.inspect(pic_id, label: "pic_id")
     IO.inspect(len, label: "pic_len")
 
@@ -161,7 +161,7 @@ defmodule Serv do
     Logger.info("ok sent")
 
     # Get pic
-    pic_mess = read_image([], len |> String.to_integer(), socket)
+    pic_mess = read_image([], String.to_integer(len), socket)
     Logger.info("got pic")
     Logger.info(Enum.count(pic_mess))
 
