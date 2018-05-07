@@ -58,7 +58,7 @@ defmodule Serv do
 
       # Skickar vidare info och startar process om PUT request
       "PUT " ->
-        #Logger.info("PUT?")
+        # Logger.info("PUT?")
         # PUT requests kan vara av olika typ vanlig och PIC
         tail
         |> String.split_at(4)
@@ -85,10 +85,11 @@ defmodule Serv do
 
       # Skickar vidare info och startar process om PUT request
       "GET " ->
-        #Logger.info "GET"
-        spawn fn -> get_req(tail, socket) end
+        # Logger.info "GET"
+        spawn(fn -> get_req(tail, socket) end)
+
       _ ->
-        IO.inspect mess, label: "SYNTAX ERROR (╯ರ ~ ರ）╯︵ ┻━┻"
+        IO.inspect(mess, label: "SYNTAX ERROR (╯ರ ~ ರ）╯︵ ┻━┻")
     end
   end
 
@@ -199,12 +200,12 @@ defmodule Serv do
       ["IMAG", owner_id, room_id] ->
         # Spara rumbild
         room_id = "#{owner_id}@#{room_id}"
-        send :memo_mux, {:room, room_id, {:set, self(), {:room, :icon, pic, :add}}}
+        send(:memo_mux, {:room, room_id, {:set, self(), {:room, :icon, pic, :add}}})
 
       ["IMAG", owner_id, room_id, quest_owner, quest_id, quest_part_id] ->
         # Spara questbilder
         room_id = "#{owner_id}@#{room_id}"
-        send :memo_mux, {:room, room_id, {:set, self(), {:quest_pic, pic_id, pic, :add}}}
+        send(:memo_mux, {:room, room_id, {:set, self(), {:quest_pic, pic_id, pic, :add}}})
 
       ["SUBM", owner_id, room_id, quest_owner, quest_id] ->
         # Submitted quest-pictures
@@ -224,7 +225,8 @@ defmodule Serv do
 
       # Nedan går endast igång om inget ovan gått igång
       true ->
-        IO.inspect len, label: "read_image rest len"
+        IO.inspect(len, label: "read_image rest len")
+
         [read_bytes(socket, len) | mem]
         |> read_image(0, socket)
     end
@@ -345,9 +347,9 @@ defmodule Serv do
 
   # Tar emot:
   # "ID:userID RID:resourceID"
-  # Skickar till memo_mux som tar emot: {:room, {room_id, action}}
-  # Om du tar bort ett room skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:room, room_id, :del}}
-  # Om du tar bort en mission skickas detta vidare till roomhandler, som tar emot: {:set, pid, {:quest, quest_id, quest, how}}
+  # Om du tar bort ett room skickas detta vidare till roomhandler
+  # Om du tar bort en mission skickas detta vidare till roomhandler
+  # TODO: bryt ut längre strukturer ur send för att göra lättare att läsa.
   defp del_room_quest(str, socket) do
     [_, resource_id] = str |> String.split(" ")
     [_, resource_id] = resource_id |> String.split("RID:")
@@ -377,6 +379,7 @@ defmodule Serv do
             {:quest, "#{owner_id}@#{room_id}@#{mission_owner}@#{mission_id}", nil, :del}}}
         )
 
+        #Tror inte du får något svar här?
         receive do
           :ok ->
             write_line("201\r\n", socket)
@@ -390,8 +393,6 @@ defmodule Serv do
   # Get req
   # ID:userID
   # FROM:userID TO:userID +- GROUP:groupID +- QUEST:questID +- string
-  # memo_mux tar emot: {:user, user_id, action = {method, _, _}}
-  # skickar vidare action som ska vara: action = {:set, pid, {:friends, user_id, value, how}}
   defp get_req(str, socket) do
     # Logger.info("GET REQ: #{str}")
     str
@@ -482,7 +483,6 @@ defmodule Serv do
     send(:memo_mux, {:user, user_id, {:set, self(), {:notifs, quest_accept, :del}}})
   end
 
-  # :friends => [%{:friend => %{:user_id => user_id, :friends => [{:user_id, amanda}, {:user_id, marcus}]}}, etc...]
   defp parse_friends([], friends), do: friends
 
   defp parse_friends([{:friend, map} | friends], sofar) do
@@ -542,11 +542,14 @@ defmodule Serv do
 
   defp send_all_pics([picmap | pics], socket) do
     length = (length(picmap.pic) - 1) * 1024 + byte_size(List.last(picmap.pic))
-    picmap |> Map.fetch(:room_id)
+
+    picmap
+    |> Map.fetch(:room_id)
     |> case do
       :error ->
         write_line("pic_len=#{length} pic_id=#{picmap.quest_pic_id} \r\n", socket)
         send_mess(picmap.pic, socket)
+
       {:ok, _} ->
         write_line("pic_len=#{length} pic_id=#{picmap.room_id} \r\n", socket)
         # TODO: READLINE - OK MELLAN SKICKNINGAR
