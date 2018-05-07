@@ -63,8 +63,10 @@ defmodule Serv do
         # PUT requests kan vara av olika typ vanlig och PIC
         tail |> String.split_at(4)
         |> case do
+          {"PIC ", nil} -> Logger.info "MAAAARRRCUUUS!"
           {"PIC ", things} ->
-            # Does room exist yet?
+            Logger.info "PUT PIC"
+            # thing = "id len"
             spawn fn -> put_pic_req(things, socket) end
 
           _ ->
@@ -158,7 +160,7 @@ defmodule Serv do
     Logger.info("ok sent")
 
     # Get pic
-    pic_mess = read_image([], String.to_integer(len), socket)
+    pic_mess = read_image([], len |> List.first() |> String.to_integer(), socket)
     Logger.info("got pic")
     Logger.info(Enum.count(pic_mess))
 
@@ -219,10 +221,11 @@ defmodule Serv do
 # Se lib/doc.ex eller den formaterade versionen docs/Docs.html om hur memo_mux funkar
 # thing@userName@roomName@ | missionOwner@missionName | @misisonPart | @thingName
   defp put_req(str, socket) do
-    Logger.info("PUT REQ")
+    #Logger.info("PUT REQ")
     [id, rid | _] = str |> String.split(" ")
     {_, json} = str |> String.split_at(String.length(id) + String.length(rid) + 2)
     decoded = Jason.decode!(json)
+    IO.inspect decoded, label: "decoded json"
 
     [_, res_id] = rid |> String.split(":")
     String.split(res_id, "@")
@@ -234,9 +237,12 @@ defmodule Serv do
 
       # Quest
       [_, owner_id, room_name, mission_owner, mission_id] ->
-        Logger.info "put_req Quest"
+
         room_id = "#{owner_id}@#{room_name}"
         quest_id = "#{owner_id}@#{room_name}@#{mission_owner}@#{mission_id}"
+        IO.inspect room_id, label: "QUEST room_id"
+        IO.inspect quest_id, label: "QUEST quest_id"
+        IO.inspect json, label: "QUEST json"
         send :memo_mux, {:room, room_id, {:set, self(), {:quest, quest_id, json}}}
     end
   end
@@ -409,7 +415,6 @@ defmodule Serv do
     quest_sub = %{:submitted => %{:from => user_id, :to => user_id2, :quest_id => quest_id}, :pic => nil, :string => nil}
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, quest_sub, :del}}}
     send :memo_mux, {:user, user_id2, {:set, self(), {:notifs, quest_sub, :del}}}
-    
     quest_accept = %{:accepted => %{:quest_id => quest_id}}
     send :memo_mux, {:user, user_id, {:set, self(), {:notifs, quest_accept, :del}}}
   end
@@ -469,7 +474,7 @@ defmodule Serv do
       :error ->
         write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.quest_pic_id + "\r\n", socket)
         send_mess(picmap.pic, socket)
-      {:ok, room_id} ->
+      {:ok, :room_id} ->
         write_line("pic len=" + length(picmap.pic) + " pic_id:" + picmap.room_id + "\r\n", socket)
         send_mess(picmap.pic, socket)
     end
