@@ -584,21 +584,13 @@ defmodule Serv do
   end
 
   # Skickar data från lista till socket, exempelvis en bild?
-  defp send_mess([], socket), do: write_line("\r\n", socket)
+  defp send_mess(list, socket), do: send_mess(list, socket, 0)
+  defp send_mess([], _, sent), do: Logger.info("Number of bytes sent: #{sent}")
 
-  defp send_mess([h | t], socket) do
+  defp send_mess([h | t], socket, sent) do
     case write_line(h, socket) do
-      :ok -> send_mess(t, socket)
+      :ok -> send_mess(t, socket, sent + byte_size(h))
       {:error, error} -> Logger.info("send_mess: #{error}")
-    end
-  end
-
-  defp all_oks(0), do: :ok
-
-  defp all_oks(int) do
-    receive do
-      {:error, error} -> error
-      {:memo, :ok} -> all_oks(int - 1)
     end
   end
 end
