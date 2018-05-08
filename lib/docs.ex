@@ -131,6 +131,7 @@ defmodule Docs do
 
   ### Lägg till rum hos användare:
       send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:room, room_id, :add}}}
+      send :memo_mux, {:user, "Jonas", {:set, self(), {:room, "Marcus@adventure", :add}}}
 
   ### Ta bort rum från användare:
       send :memo_mux, {:user, user_id, {:set, pid_of_sender, {:room, room_id, :del}}}

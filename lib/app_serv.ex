@@ -8,33 +8,8 @@ defmodule Serv do
     # http://erlang.org/doc/man/gen_tcp.html
     {:ok, socket} = :gen_tcp.listen(port, [:binary, packet: :raw, active: false, reuseaddr: true])
 
-
-    user_data1 = %{
-    :user_id => "JonaZ",
-    :notifs => [],
-    :friends => [%{:friend => %{:user_id => "Marcus", :friends => [%{:user_id => "JonaZ"}]}}],
-    :rooms => [
-      %{:room_id => "JonaZ och Marcus äventyr"}],
-    :has_new => false
-    }
-
-    user_data2 = %{
-    :user_id => "Marcus",
-    :notifs => [],
-    :friends => [%{:friend => %{:user_id => "JonaZ", :friends => [%{:user_id => "Marcus"}]}}],
-    :rooms => [
-      %{:room_id => "JonaZ och Marcus äventyr"}],
-    :has_new => false
-    }
-
     # Starting Data handler
     {:ok, _} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> Memo.start() end)
-    send :memo_mux, {:user, "Marcus", {:create_user, user_data1}}
-    send :memo_mux, {:user, "JonaZ", {:create_user, user_data2}}
-    send :memo_mux, {:room, "JonaZ@JonaZ och Marcus äventyr", {:set, self(), {:room, :owner, "JonaZ", :add}}}
-    send :memo_mux, {:room, "JonaZ@JonaZ och Marcus äventyr", {:set, self(), {:room, :users, %{:user => "JonaZ"}, :add}}}
-    send :memo_mux, {:room, "JonaZ@JonaZ och Marcus äventyr", {:set, self(), {:room, :users, %{:user => "Marcus"}, :add}}}
-
     Logger.info("Accepting connections on port #{port}")
     loop_acceptor(socket)
   end
