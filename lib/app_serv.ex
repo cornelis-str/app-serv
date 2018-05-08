@@ -185,9 +185,11 @@ defmodule Serv do
     # Logger.info("ok2 sent")
 
     # save
-    pic_mess
-    |> Enum.reverse()
-    |> save_pic(pic_id)
+    spawn(fn ->
+      pic_mess
+      |> Enum.reverse()
+      |> save_pic(pic_id)
+    end)
   end
 
   # picID = IMAG@userName@roomName | @missionOwner@missionName@misisonPart@thingName
@@ -222,7 +224,6 @@ defmodule Serv do
         [read_bytes(socket, 1024) | mem]
         |> read_image(len - 1024, socket)
 
-      # Nedan går endast igång om inget ovan gått igång
       true ->
         IO.inspect(len, label: "read_image rest len")
 
