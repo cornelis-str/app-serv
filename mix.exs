@@ -14,7 +14,7 @@ defmodule Serv.MixProject do
       source_url: "https://gits-15.sys.kth.se/anee/app_serv",
       homepage_url: "https://gitgnome.github.io",
       docs: [
-        main: "Server",
+        main: "Docs",
         extras: ["README.md"]
       ]
     ]
