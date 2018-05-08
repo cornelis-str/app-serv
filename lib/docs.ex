@@ -20,7 +20,7 @@ defmodule Docs do
           etc...
         ],
         :friends => [
-          %{:friend, %{:user_id => user_id, :friends => [
+          %{:friend => %{:user_id => user_id, :friends => [
               %{:user_id => user_id},
               %{:user_id => user_id}
               ]

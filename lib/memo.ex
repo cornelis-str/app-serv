@@ -34,8 +34,10 @@ defmodule Memo do
 
     receive do
       {:user, user_id, {:create_user, user_data}} ->
-        create_user(user_id, user_data, user_pid_list)
-        |> memo_mux(room_pid_list)
+        if user_pid_list != nil do
+          create_user(user_id, user_data, user_pid_list)
+          |> memo_mux(room_pid_list)
+        end
 
       {:user, user_id, action = {method, _, _}} ->
         case user_pid_list[user_id] do
@@ -50,7 +52,7 @@ defmodule Memo do
             memo_mux(user_pid_list, room_pid_list)
         end
 
-      {:room, room_id, action = {method, _, _}} ->
+      {:room, room_id, action} ->
         case room_pid_list[room_id] do
           nil ->
             new_room_pid_list = create_room(room_id, room_pid_list)
