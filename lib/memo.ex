@@ -25,57 +25,58 @@ defmodule Memo do
     {:ok, pid} = Task.Supervisor.start_child(Serv.TaskSupervisor, fn -> memo_mux(%{}, %{}) end)
     Process.register(pid, :memo_mux)
 
-    #spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
+    # spawn(fn -> file_mux(file_path) end) |> Process.register(:file_mux)
   end
 
   defp memo_mux(user_pid_list, room_pid_list) do
-    IO.inspect user_pid_list, label: "user_pid_list"
-    IO.inspect room_pid_list, label: "room_pid_list"
+    IO.inspect(user_pid_list, label: "user_pid_list")
+    IO.inspect(room_pid_list, label: "room_pid_list")
+
     receive do
       {:user, user_id, {:create_user, user_data}} ->
-        create_user(user_id, user_data, user_pid_list)
-        |> memo_mux(room_pid_list)
+        if user_pid_list != nil do
+          create_user(user_id, user_data, user_pid_list)
+          |> memo_mux(room_pid_list)
+        end
 
       {:user, user_id, action = {method, _, _}} ->
         case user_pid_list[user_id] do
-
           nil ->
-            IO.inspect method, label: "No #{user_id} in user_pid_list (╯ರ ~ ರ）╯︵ ┻━┻"
+            IO.inspect(method, label: "No #{user_id} in user_pid_list (╯ರ ~ ರ）╯︵ ┻━┻")
             memo_mux(user_pid_list, room_pid_list)
 
           pid ->
-            Logger.info ":user #{user_id} #{method}"
-            #IO.inspect method
-            send pid, action
-            memo_mux user_pid_list, room_pid_list
+            Logger.info(":user #{user_id} #{method}")
+            # IO.inspect method
+            send(pid, action)
+            memo_mux(user_pid_list, room_pid_list)
         end
 
-      {:room, room_id, action = {method, _, _}} ->
+      {:room, room_id, action} ->
         case room_pid_list[room_id] do
-
           nil ->
             new_room_pid_list = create_room(room_id, room_pid_list)
-            IO.inspect new_room_pid_list, label: "new_room_pid_list"
-            send new_room_pid_list[room_id], action
-            memo_mux user_pid_list, new_room_pid_list
+            IO.inspect(new_room_pid_list, label: "new_room_pid_list")
+            send(new_room_pid_list[room_id], action)
+            memo_mux(user_pid_list, new_room_pid_list)
 
           room_pid ->
-            send room_pid, action
-            memo_mux user_pid_list, room_pid_list
+            send(room_pid, action)
+            memo_mux(user_pid_list, room_pid_list)
         end
 
       {:quit} ->
         quit(user_pid_list, room_pid_list)
-        Logger.info "memo_mux: Bye"
+        Logger.info("memo_mux: Bye")
 
       catch_all ->
-        IO.inspect catch_all, [limit: :infinity, label: "Memo_mux catch_all"]
+        IO.inspect(catch_all, limit: :infinity, label: "Memo_mux catch_all")
         memo_mux(user_pid_list, room_pid_list)
     end
   end
 
   def create_user(id, user_data, pid_list) do
-    pid_list |> Map.put(id, spawn fn -> Memo_user.data_handler(user_data) end)
+    pid_list |> Map.put(id, spawn(fn -> Memo_user.data_handler(user_data) end))
   end
 
   def create_room(id, pid_list) do
@@ -91,7 +92,7 @@ defmodule Memo do
       :quest_pics => []
     }
 
-    send :memo_mux, {:user, owner_name, {:set, self(), {:room, id, :add}}}
+    send(:memo_mux, {:user, owner_name, {:set, self(), {:room, id, :add}}})
 
     pid_list |> Map.put(id, spawn(fn -> Memo_room.data_handler(new_room) end))
   end
@@ -100,12 +101,12 @@ defmodule Memo do
     # skicka :save och :quit till alla user_data_handler processer
     # ska finnas ett sätt att automatiskt stänga av alla processer i
     # rätt ordning med Tasksupervisor på något sätt...
-    save_exit = fn([h|t], f) ->
+    save_exit = fn [h | t], f ->
       case h do
         {_, pid} ->
-          #send pid, {:save, user_id}
-          send pid, {:quit}
-          f.(t,f)
+          # send pid, {:save, user_id}
+          send(pid, {:quit})
+          f.(t, f)
       end
     end
 
@@ -113,8 +114,8 @@ defmodule Memo do
     save_exit.(room_pid_list |> Map.to_list(), save_exit)
 
     # TODO gå inte vidare för än alla barnprocesser är döda
-    #send :ld, {:quit}
-    #send :file_mux, {:quit}
+    # send :ld, {:quit}
+    # send :file_mux, {:quit}
   end
 
   ### FILE SAVE AND LOAD ###
@@ -122,17 +123,22 @@ defmodule Memo do
   # Sparar till och laddar från fil
   def file_mux(file_path) do
     file_path |> Path.expand() |> File.stream!([], :line)
+
     receive do
       {:save, {user_id, user_data}} ->
         "tbd"
-        # TODO save to file
+
+      # TODO save to file
       {:load, user_id} ->
         "tbd"
-        # TODO load from file
-      {:quit} -> :ok
+
+      # TODO load from file
+      {:quit} ->
+        :ok
     end
   end
 
   # TODO ladda user från minnet med file_mux
-  def load_user(user_id) do end
+  def load_user(user_id) do
+  end
 end
