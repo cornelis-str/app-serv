@@ -1,7 +1,7 @@
 # Serv
-//
-Server byggd som en databas för en app. Parprogrammerad av mig och Amanda.
-//
+
+Servern byggdes som en databas för en app vi skapade i ett projekt. Parprogrammerad av mig och Amanda. Varken appen eller servern är fullständigt kompletta.
+
 Saker vi kaaaanske kommer använda:
 https://github.com/ninenines/ranch
 https://github.com/michalmuskala/jason
