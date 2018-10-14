@@ -1,4 +1,7 @@
 # Serv
+//
+Server byggd som en databas för en app. Parprogrammerad av mig och Amanda.
+//
 Saker vi kaaaanske kommer använda:
 https://github.com/ninenines/ranch
 https://github.com/michalmuskala/jason
